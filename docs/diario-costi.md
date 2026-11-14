@@ -1,0 +1,9 @@
+# Diario dei costi
+
+Una riga per sessione di lavoro con un agente. Serve a sapere quanto costa
+davvero ogni tappa e quando un modello più costoso vale la differenza.
+
+| Data | Tappa | Modello | Obiettivo | Token (in / out) | Costo ($) | Test passati? | Dove si è bloccato |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-11-13 | Fase 1, CPU | Opus 5.5 | Struttura del repo, core a ciclo singolo, runner dei test | | | Non ancora eseguiti | Mancano Verilator, GCC RISC-V e Spike |
+| 2026-11-13 | Fase 1, CPU | Opus 5.5 | Prima compilazione, riscv-tests, confronto con Spike | | | 49/49, identici a Spike | Solo errori di build: percorso relativo nel Makefile, sottomodulo di Spike mancante. Il core non ha richiesto correzioni funzionali |
