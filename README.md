@@ -4,7 +4,7 @@ A core sample of a neural network: follow one token from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms.
+> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP that matches PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -25,6 +25,7 @@ sw/arch-test/ riscv-arch-test (ACT4) configuration for the core
 sw/runtime/   Start-up code and linker script for C programs
 sw/programs/  C programs for the core (dense_int8: one int8 dense layer with ReLU)
 scripts/      Dependency installer, test runners, Spike comparison, trace converter
+sim/nn/       Network simulator in Rust: tensors, autograd graph, training
 docs/         Roadmap and decisions
 ```
 
@@ -37,6 +38,7 @@ make compare              # same, plus an instruction-by-instruction check again
 make arch-test            # riscv-arch-test, self-checking, plus the same check against Spike
 make trace                # run dense_int8, check it against Spike, write its trace and waveforms
 make unit                 # unit tests of the Python tools
+make nn-test              # network simulator tests against PyTorch (needs cargo)
 ```
 
 Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
@@ -87,3 +89,16 @@ Apache License 2.0, see [LICENSE](LICENSE). Two files in `sw/arch-test/`
 its BSD 3-Clause license, see [sw/arch-test/LICENSE.BSD](sw/arch-test/LICENSE.BSD).
 riscv-tests, riscv-arch-test and Spike are downloaded by `scripts/install-deps.sh`
 into `third_party/` and `~/.local`; they are not part of this repository.
+
+## Network simulator
+
+`sim/nn` is a Rust crate with no dependencies: f32 tensors, a computation graph
+whose nodes are explicit operations (so later stages can point back at them),
+reverse-mode autograd and SGD. Every operation, forward and backward, is
+compared with PyTorch, element by element, within |a - b| <= 1e-5 + 1e-4 |b|.
+
+The reference values come from `sim/nn/reference/gen_reference.py` (PyTorch
+2.5.1, fixed seeds, one thread) and are committed in `sim/nn/tests/data`, so
+`cargo test` does not need PyTorch. Besides PyTorch, the gradients are checked
+by finite differences. A 2-16-3 MLP trained for 100 SGD steps on a spiral
+dataset stays within 4e-7 of PyTorch in every loss and every final weight.

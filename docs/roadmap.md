@@ -58,3 +58,14 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Traccia Perfetto: flame graph delle chiamate e una slice per istruzione, sullo stesso asse dei tempi del VCD
 - [x] Test tra livelli: istruzioni nella traccia = istruzioni ritirate, frame annidati, ogni istruzione nella funzione giusta, pc del VCD = pc del log ciclo per ciclo
 - [x] Rilascio pubblico (G1): v0.1.0 su GitHub, licenza Apache-2.0
+
+## Stato della fase 1, rete
+
+- [x] Rust 1.83.0 fissato in `sim/nn/rust-toolchain.toml`, PyTorch 2.5.1 (CPU) in `.venv` per i riferimenti
+- [x] Riferimenti PyTorch in un formato binario minimo, f32 esatti, riproducibili bit per bit
+- [x] Tensori, grafo con operazioni esplicite, autograd: matmul, add, add_bias, relu, cross_entropy
+- [x] Ogni operazione, avanti e indietro, entro 1e-5 + 1e-4·|b| da PyTorch; gradienti controllati anche con le differenze finite
+- [x] MLP 2-16-3 addestrato con SGD per 100 passi: ogni loss e ogni peso finale entro 4e-7 da PyTorch
+- [x] Controllo che i test sappiano fallire: ReLU con gradiente 1 in zero, cross-entropy senza media sul batch
+- [ ] Rete convoluzionale (conv2d, pooling)
+- [ ] Blocco transformer (layer norm, softmax, attenzione)

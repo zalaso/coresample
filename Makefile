@@ -8,6 +8,8 @@
 #   make trace    run the dense_int8 C program, compare it with Spike and write
 #                 its Perfetto trace and VCD waveforms to build/programs/
 #   make unit     unit tests of the Python tools
+#   make nn-test  tests of the network simulator (Rust) against PyTorch references
+#   make nn-ref   regenerate those references (needs PyTorch in .venv)
 
 RISCV_PREFIX ?= riscv64-unknown-elf-
 VERILATOR    ?= verilator
@@ -31,7 +33,7 @@ TEST_CFLAGS := -march=rv32im_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany 
                -fvisibility=hidden -nostdlib -nostartfiles \
                -Isw/env -I$(ISA_DIR)/macros/scalar -Tsw/env/link.ld
 
-.PHONY: all sim tests test compare arch-test trace unit check-tests clean
+.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref check-tests clean
 all: sim
 
 sim: $(SIM)
@@ -91,6 +93,15 @@ trace: sim $(DENSE)/dense_int8.elf
 
 unit:
 	$(PYTHON) -m unittest discover -s scripts/tests
+
+CARGO ?= cargo
+VENV_PYTHON ?= .venv/bin/python
+
+nn-test:
+	cd sim/nn && $(CARGO) test
+
+nn-ref:
+	$(VENV_PYTHON) sim/nn/reference/gen_reference.py
 
 clean:
 	rm -rf $(BUILD)

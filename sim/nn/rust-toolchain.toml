@@ -1,0 +1,5 @@
+# Pinned so every machine builds and tests the simulator with the same compiler.
+[toolchain]
+channel = "1.83.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
