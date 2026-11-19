@@ -79,3 +79,11 @@ same moment in the waveforms carry the same timestamp. The tests in
 the trace, frames nest, every instruction runs inside the function the symbol
 table assigns it, call counts match the program, and the VCD's program counter
 matches the commit log cycle by cycle.
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE). Two files in `sw/arch-test/`
+(`rvmodel_macros.h`, `link.ld`) are adapted from riscv-arch-test and stay under
+its BSD 3-Clause license, see [sw/arch-test/LICENSE.BSD](sw/arch-test/LICENSE.BSD).
+riscv-tests, riscv-arch-test and Spike are downloaded by `scripts/install-deps.sh`
+into `third_party/` and `~/.local`; they are not part of this repository.

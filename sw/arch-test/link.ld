@@ -1,3 +1,8 @@
+/* Linker script for riscv-arch-test on the Coresample core.
+   Adapted from riscv-arch-test config/spike/spike-RVI20U32/link.ld; only the
+   RAM size differs. See LICENSE.BSD in this directory.
+   SPDX-License-Identifier: BSD-3-Clause */
+
 /* Set these to match the DUT memory map and hart count. */
 RAM_ORIGIN = 0x80000000;
 RAM_LENGTH = 0x00100000; /* 1 MiB, same as the testbench and the Spike run */

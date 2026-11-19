@@ -57,4 +57,4 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Forme d'onda VCD dal simulatore, da aprire in Surfer
 - [x] Traccia Perfetto: flame graph delle chiamate e una slice per istruzione, sullo stesso asse dei tempi del VCD
 - [x] Test tra livelli: istruzioni nella traccia = istruzioni ritirate, frame annidati, ogni istruzione nella funzione giusta, pc del VCD = pc del log ciclo per ciclo
-- [ ] Rilascio pubblico (G1): serve un repository su GitHub
+- [x] Rilascio pubblico (G1): v0.1.0 su GitHub, licenza Apache-2.0

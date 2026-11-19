@@ -2,7 +2,10 @@
 // DUT-specific macros for running riscv-arch-test on the Coresample core.
 // The testbench ends the simulation when the program writes a nonzero value
 // to `tohost`: 1 means pass, any other value means fail.
-// SPDX-License-Identifier: Apache-2.0
+//
+// Adapted from riscv-arch-test config/spike/spike-RVI20U32/rvmodel_macros.h
+// (Jordan Carlin, January 2026). See LICENSE.BSD in this directory.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef _RVMODEL_MACROS_H
 #define _RVMODEL_MACROS_H
