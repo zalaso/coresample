@@ -3,12 +3,15 @@
 #   make tests    build the riscv-tests ELFs (rv32ui, rv32um)
 #   make test     run every test on the core
 #   make compare  run every test and compare each instruction with Spike
+#   make arch-test  build riscv-arch-test (ACT4) self-checking ELFs with Spike
+#                   as the reference, run them and compare with Spike
 
 RISCV_PREFIX ?= riscv64-unknown-elf-
 VERILATOR    ?= verilator
 SPIKE        ?= spike
 PYTHON       ?= python3
 RISCV_TESTS  ?= third_party/riscv-tests
+ARCH_TEST    ?= third_party/riscv-arch-test
 
 BUILD := build
 SIM   := $(BUILD)/sim/cs_sim
@@ -25,7 +28,7 @@ TEST_CFLAGS := -march=rv32im_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany 
                -fvisibility=hidden -nostdlib -nostartfiles \
                -Isw/env -I$(ISA_DIR)/macros/scalar -Tsw/env/link.ld
 
-.PHONY: all sim tests test compare check-tests clean
+.PHONY: all sim tests test compare arch-test check-tests clean
 all: sim
 
 sim: $(SIM)
@@ -54,6 +57,13 @@ test: sim tests
 
 compare: sim tests
 	$(PYTHON) scripts/run_tests.py --sim $(SIM) --spike $(SPIKE) $(TEST_ELFS)
+
+# The ELF list depends on the test headers, so the Python script builds them all
+# and the runner picks up whatever it produced.
+arch-test: sim
+	$(PYTHON) scripts/build_arch_tests.py --act $(ARCH_TEST) --spike $(SPIKE) --gcc $(RISCV_PREFIX)gcc
+	$(PYTHON) scripts/run_tests.py --sim $(SIM) --spike $(SPIKE) --trace-dir $(BUILD)/traces/arch \
+	  $(BUILD)/arch/elfs/*.elf
 
 clean:
 	rm -rf $(BUILD)

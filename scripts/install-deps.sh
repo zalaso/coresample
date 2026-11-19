@@ -3,12 +3,13 @@
 #   1. system packages (needs sudo): Verilator, RISC-V GCC, Spike's build deps
 #   2. Spike, the RISC-V reference simulator, built from source into $PREFIX
 #   3. riscv-tests, the official ISA test suite, cloned into third_party/
+#   4. riscv-arch-test (ACT4), the architectural tests, cloned into third_party/
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREFIX="${PREFIX:-$HOME/.local}"
 
-echo "==> 1/3 System packages (sudo)"
+echo "==> 1/4 System packages (sudo)"
 sudo apt-get update
 sudo apt-get install -y \
   verilator \
@@ -16,7 +17,7 @@ sudo apt-get install -y \
   device-tree-compiler libboost-regex-dev libboost-system-dev \
   build-essential git python3
 
-echo "==> 2/3 Spike"
+echo "==> 2/4 Spike"
 if command -v spike >/dev/null 2>&1; then
   echo "spike already installed: $(command -v spike)"
 else
@@ -35,7 +36,7 @@ else
   rm -rf "$tmp"
 fi
 
-echo "==> 3/3 riscv-tests"
+echo "==> 3/4 riscv-tests"
 if [ -d "$ROOT/third_party/riscv-tests" ]; then
   echo "riscv-tests already present"
 else
@@ -43,6 +44,16 @@ else
   git clone https://github.com/riscv-software-src/riscv-tests "$ROOT/third_party/riscv-tests"
 fi
 git -C "$ROOT/third_party/riscv-tests" rev-parse HEAD > "$ROOT/docs/.riscv-tests-commit"
+
+echo "==> 4/4 riscv-arch-test"
+if [ -d "$ROOT/third_party/riscv-arch-test" ]; then
+  echo "riscv-arch-test already present"
+else
+  mkdir -p "$ROOT/third_party"
+  # Only the generated tests and headers are used: no mise, uv, Ruby or Sail needed.
+  git clone --depth 1 https://github.com/riscv-non-isa/riscv-arch-test "$ROOT/third_party/riscv-arch-test"
+fi
+git -C "$ROOT/third_party/riscv-arch-test" rev-parse HEAD > "$ROOT/docs/.riscv-arch-test-commit"
 
 echo
 echo "Done. If 'spike' is not found, add $PREFIX/bin to PATH:"

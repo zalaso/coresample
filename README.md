@@ -4,7 +4,7 @@ A core sample of a neural network: follow one token from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 1, step 1. Single-cycle RV32IM core passes riscv-tests rv32ui and rv32um, with every instruction identical to Spike.
+> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike.
 
 ## Levels and what checks them
 
@@ -21,6 +21,7 @@ RISC-V CPU designed from scratch and verified at every level.
 hw/rtl/       SystemVerilog sources (cs_core.sv: single-cycle RV32IM core)
 hw/sim/       Verilator testbench: ELF loader, RAM, Spike-format commit log
 sw/env/       Minimal environment to run riscv-tests on the core and on Spike
+sw/arch-test/ riscv-arch-test (ACT4) configuration for the core
 scripts/      Dependency installer, test runner and Spike comparison
 docs/         Roadmap and decisions
 ```
@@ -28,11 +29,13 @@ docs/         Roadmap and decisions
 ## Getting started (Ubuntu / Linux Mint)
 
 ```bash
-scripts/install-deps.sh   # Verilator, RISC-V GCC, Spike, riscv-tests (needs sudo)
+scripts/install-deps.sh   # Verilator, RISC-V GCC, Spike, riscv-tests, riscv-arch-test (needs sudo)
 make test                 # run riscv-tests rv32ui + rv32um on the core
 make compare              # same, plus an instruction-by-instruction check against Spike
+make arch-test            # riscv-arch-test, self-checking, plus the same check against Spike
 ```
 
+Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
 Traces end up in `build/traces/`, one commit log per test for the core and for Spike.
 
 ## How verification works
@@ -41,3 +44,16 @@ Every test ELF runs twice: on the core (through Verilator) and on Spike, the
 RISC-V reference simulator. Both write a commit log, one line per retired
 instruction with its register write and memory access. A test passes only if
 the program reports success and the two logs are identical.
+
+### riscv-arch-test
+
+The official ACT4 flow computes expected results with the Sail model and needs
+mise, uv, Ruby and Sail. `scripts/build_arch_tests.py` runs the same pipeline
+with Spike as the reference instead: it compiles each test in signature mode,
+runs it on Spike, post-processes the signature with ACT's own code and
+recompiles the test as a self-checking ELF. The core then runs that ELF, and
+its commit log is compared with Spike's as above.
+
+Tests are selected from their header: only those whose required extensions the
+core implements (I, M, Zmmul, Zifencei). The core has no CSRs, so tests that
+need trap handlers are out of reach for now.

@@ -51,5 +51,6 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Controllo che i test sappiano fallire: un core con SUB sbagliata fa fallire `rv32ui-sub`
 - [x] Nessuna divergenza da Spike: 49 test, ogni istruzione identica in pc, codifica, registro scritto e accesso in memoria
 - [x] Controllo che il confronto sappia fallire: un valore scritto alterato a mano viene segnalato all'istruzione esatta
-- [ ] riscv-arch-test
+- [x] riscv-arch-test (ACT4): 52 test su 52 (I, M, Zmmul, Zifencei), ogni istruzione identica a Spike. I risultati attesi li calcola Spike invece di Sail, con la stessa catena di ACT
+- [x] Controllo che riscv-arch-test sappia fallire: un valore atteso alterato fa fallire il test, e un core con MULHSU sbagliata fa fallire solo i due test di MULHSU
 - [ ] Visualizzatore della traccia
