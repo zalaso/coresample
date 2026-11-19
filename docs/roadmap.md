@@ -7,7 +7,7 @@ Durate indicative, lavorando part-time con l'aiuto degli agenti.
 | Decisione | Scelta | Stato |
 | --- | --- | --- |
 | Linguaggio del circuito | SystemVerilog, simulato con Verilator | Deciso |
-| Linguaggio del simulatore di reti | Rust o C | Da decidere entro la settimana 3 |
+| Linguaggio del simulatore di reti | Rust: compila anche in WebAssembly, così il simulatore può girare nel browser accanto alle tracce | Deciso |
 | Budget mensile per le API | | Da decidere |
 | Modelli | Opus 5.5 di default, Sonnet 5.5 per la routine, Fable 5.2 solo dove Opus fallisce | Deciso |
 
@@ -53,4 +53,8 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Controllo che il confronto sappia fallire: un valore scritto alterato a mano viene segnalato all'istruzione esatta
 - [x] riscv-arch-test (ACT4): 52 test su 52 (I, M, Zmmul, Zifencei), ogni istruzione identica a Spike. I risultati attesi li calcola Spike invece di Sail, con la stessa catena di ACT
 - [x] Controllo che riscv-arch-test sappia fallire: un valore atteso alterato fa fallire il test, e un core con MULHSU sbagliata fa fallire solo i due test di MULHSU
-- [ ] Visualizzatore della traccia
+- [x] Programma C sul core: `dense_int8`, uno strato denso int8 con ReLU, risultato confrontato con un riferimento Python e identico a Spike istruzione per istruzione
+- [x] Forme d'onda VCD dal simulatore, da aprire in Surfer
+- [x] Traccia Perfetto: flame graph delle chiamate e una slice per istruzione, sullo stesso asse dei tempi del VCD
+- [x] Test tra livelli: istruzioni nella traccia = istruzioni ritirate, frame annidati, ogni istruzione nella funzione giusta, pc del VCD = pc del log ciclo per ciclo
+- [ ] Rilascio pubblico (G1): serve un repository su GitHub

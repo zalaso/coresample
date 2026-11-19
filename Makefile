@@ -5,6 +5,9 @@
 #   make compare  run every test and compare each instruction with Spike
 #   make arch-test  build riscv-arch-test (ACT4) self-checking ELFs with Spike
 #                   as the reference, run them and compare with Spike
+#   make trace    run the dense_int8 C program, compare it with Spike and write
+#                 its Perfetto trace and VCD waveforms to build/programs/
+#   make unit     unit tests of the Python tools
 
 RISCV_PREFIX ?= riscv64-unknown-elf-
 VERILATOR    ?= verilator
@@ -28,14 +31,14 @@ TEST_CFLAGS := -march=rv32im_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany 
                -fvisibility=hidden -nostdlib -nostartfiles \
                -Isw/env -I$(ISA_DIR)/macros/scalar -Tsw/env/link.ld
 
-.PHONY: all sim tests test compare arch-test check-tests clean
+.PHONY: all sim tests test compare arch-test trace unit check-tests clean
 all: sim
 
 sim: $(SIM)
 
 $(SIM): $(RTL) $(SIM_SRC)
 	mkdir -p $(BUILD)/sim
-	$(VERILATOR) --cc --exe --build -j 0 -Wall --top-module cs_core \
+	$(VERILATOR) --cc --exe --build -j 0 -Wall --trace --top-module cs_core \
 	  -Mdir $(BUILD)/sim -o cs_sim $(RTL) $(abspath $(SIM_SRC))
 
 check-tests:
@@ -64,6 +67,30 @@ arch-test: sim
 	$(PYTHON) scripts/build_arch_tests.py --act $(ARCH_TEST) --spike $(SPIKE) --gcc $(RISCV_PREFIX)gcc
 	$(PYTHON) scripts/run_tests.py --sim $(SIM) --spike $(SPIKE) --trace-dir $(BUILD)/traces/arch \
 	  $(BUILD)/arch/elfs/*.elf
+
+# C programs: crt0 + one directory per program under sw/programs/.
+PROG_CFLAGS := -march=rv32im_zicsr -mabi=ilp32 -O2 -g -static -mcmodel=medany \
+               -nostdlib -nostartfiles -ffreestanding -fno-builtin -Wall -Wextra \
+               -Wl,--no-warn-rwx-segments -Tsw/runtime/link.ld
+DENSE := $(BUILD)/programs/dense_int8
+
+$(DENSE)/dense_int8_data.h: scripts/gen_dense_int8.py
+	mkdir -p $(DENSE)
+	$(PYTHON) scripts/gen_dense_int8.py $@
+
+$(DENSE)/dense_int8.elf: sw/programs/dense_int8/main.c sw/runtime/crt0.S sw/runtime/link.ld $(DENSE)/dense_int8_data.h
+	$(RISCV_PREFIX)gcc $(PROG_CFLAGS) -I$(DENSE) sw/runtime/crt0.S $< -lgcc -o $@
+
+# The commit log comes from the Spike comparison, so a trace is only written
+# for a run that matches Spike instruction by instruction.
+trace: sim $(DENSE)/dense_int8.elf
+	$(PYTHON) scripts/run_tests.py --sim $(SIM) --spike $(SPIKE) --trace-dir $(DENSE) $(DENSE)/dense_int8.elf
+	$(SIM) --vcd $(DENSE)/dense_int8.vcd $(DENSE)/dense_int8.elf
+	$(PYTHON) scripts/trace_to_perfetto.py --elf $(DENSE)/dense_int8.elf --log $(DENSE)/dense_int8.core.log \
+	  -o $(DENSE)/dense_int8.perfetto.json
+
+unit:
+	$(PYTHON) -m unittest discover -s scripts/tests
 
 clean:
 	rm -rf $(BUILD)

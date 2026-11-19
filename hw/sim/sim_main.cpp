@@ -23,6 +23,7 @@
 
 #include "Vcs_core.h"
 #include "verilated.h"
+#include "verilated_vcd_c.h"
 
 namespace {
 
@@ -133,14 +134,16 @@ int finish(int code, const std::string& line, uint64_t cycles) {
 int main(int argc, char** argv) {
   const char* elf_path = nullptr;
   const char* trace_path = nullptr;
+  const char* vcd_path = nullptr;
   uint64_t max_cycles = 1'000'000;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--trace") && i + 1 < argc) trace_path = argv[++i];
+    else if (!std::strcmp(argv[i], "--vcd") && i + 1 < argc) vcd_path = argv[++i];
     else if (!std::strcmp(argv[i], "--max-cycles") && i + 1 < argc) max_cycles = std::stoull(argv[++i]);
     else elf_path = argv[i];
   }
   if (!elf_path) {
-    std::fprintf(stderr, "usage: %s [--trace FILE] [--max-cycles N] program.elf\n", argv[0]);
+    std::fprintf(stderr, "usage: %s [--trace FILE] [--vcd FILE] [--max-cycles N] program.elf\n", argv[0]);
     return 2;
   }
 
@@ -159,11 +162,27 @@ int main(int argc, char** argv) {
   ctx->commandArgs(argc, argv);
   auto core = std::make_unique<Vcs_core>(ctx.get());
 
+  // Waveforms at a nominal 100 MHz: one dump per clock half-period, 5 ns
+  // apart (the VCD unit is 1 ps). After the two reset cycles, cycle n of the
+  // run (the number the commit log and "cycles" count from 0) has its
+  // rising edge at 25 + 10n ns.
+  std::unique_ptr<VerilatedVcdC> vcd;
+  uint64_t vcd_time = 0;
+  if (vcd_path) {
+    ctx->traceEverOn(true);
+    vcd = std::make_unique<VerilatedVcdC>();
+    core->trace(vcd.get(), 99);
+    vcd->open(vcd_path);
+    if (!vcd->isOpen()) return finish(2, std::string("RESULT ERROR cannot write ") + vcd_path, 0);
+  }
+  auto dump = [&]() { if (vcd) { vcd->dump(vcd_time); vcd_time += 5000; } };
+  struct VcdCloser { std::unique_ptr<VerilatedVcdC>& v; ~VcdCloser() { if (v) v->close(); } } vcd_closer{vcd};
+
   // Reset for two cycles.
   core->rst = 1;
   for (int i = 0; i < 2; ++i) {
-    core->clk = 0; core->eval();
-    core->clk = 1; core->eval();
+    core->clk = 0; core->eval(); dump();
+    core->clk = 1; core->eval(); dump();
   }
   core->rst = 0;
 
@@ -183,6 +202,7 @@ int main(int argc, char** argv) {
     }
     core->dmem_rdata = core->dmem_re ? ram.read32(core->dmem_addr) : 0;
     core->eval();
+    dump();
 
     if (!core->rvfi_valid) return finish(2, "RESULT ERROR core is not retiring", cycle);
     if (trace) log_commit(trace, *core);
@@ -200,6 +220,7 @@ int main(int argc, char** argv) {
     if (core->dmem_we) ram.write32(core->dmem_addr, core->dmem_wdata, core->dmem_wmask);
     core->clk = 1;
     core->eval();
+    dump();
 
     if (to_host) {
       if (host_value == 1) return finish(0, "RESULT PASS", cycle + 1);
