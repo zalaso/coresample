@@ -4,7 +4,7 @@ A core sample of a neural network: follow one token from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP that matches PyTorch step by step.
+> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP and a small CNN that match PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -101,4 +101,7 @@ The reference values come from `sim/nn/reference/gen_reference.py` (PyTorch
 2.5.1, fixed seeds, one thread) and are committed in `sim/nn/tests/data`, so
 `cargo test` does not need PyTorch. Besides PyTorch, the gradients are checked
 by finite differences. A 2-16-3 MLP trained for 100 SGD steps on a spiral
-dataset stays within 4e-7 of PyTorch in every loss and every final weight.
+dataset stays within 4e-7 of PyTorch in every loss and every final weight. A
+small CNN (conv 3x3, ReLU, max pool, linear) trained for 60 steps on synthetic
+8x8 images of bars stays within 3e-7. Convolution and pooling use direct loops
+on NCHW tensors, and max pooling breaks ties like PyTorch (first maximum).

@@ -5,6 +5,7 @@
 //! Conventions: f32 everywhere, row-major tensors, and a linear layer is
 //! `x @ W + b` with `W` of shape (in, out).
 
+mod conv;
 pub mod graph;
 pub mod refdata;
 pub mod tensor;

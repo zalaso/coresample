@@ -8,6 +8,7 @@
 //! before it, so the node order is already a topological order. Backward
 //! walks the nodes in reverse.
 
+use crate::conv::{conv2d, conv2d_backward, max_pool2d, max_pool2d_backward};
 use crate::tensor::{matmul, matmul_at, matmul_bt, Tensor};
 
 /// Handle to a node of one [`Graph`].
@@ -31,6 +32,24 @@ pub enum Op {
     Relu(NodeId),
     /// Mean over the batch of `-log softmax(logits)[target]`; a scalar.
     CrossEntropy { logits: NodeId, targets: Vec<usize> },
+    /// 2-D cross-correlation plus bias on NCHW tensors, weight (C_out, C_in, kH, kW),
+    /// zero padding on every side.
+    Conv2d {
+        x: NodeId,
+        w: NodeId,
+        b: NodeId,
+        stride: usize,
+        padding: usize,
+    },
+    /// Max over square windows, no padding. Ties go to the first maximum in
+    /// row-major order, as in PyTorch.
+    MaxPool2d {
+        x: NodeId,
+        kernel: usize,
+        stride: usize,
+    },
+    /// Same values, new shape (the node's own shape).
+    Reshape(NodeId),
 }
 
 impl Op {
@@ -44,6 +63,9 @@ impl Op {
             Op::AddBias(..) => "add_bias",
             Op::Relu(..) => "relu",
             Op::CrossEntropy { .. } => "cross_entropy",
+            Op::Conv2d { .. } => "conv2d",
+            Op::MaxPool2d { .. } => "max_pool2d",
+            Op::Reshape(..) => "reshape",
         }
     }
 
@@ -51,8 +73,9 @@ impl Op {
         match self {
             Op::Input | Op::Param => vec![],
             Op::MatMul(a, b) | Op::Add(a, b) | Op::AddBias(a, b) => vec![*a, *b],
-            Op::Relu(x) => vec![*x],
+            Op::Relu(x) | Op::Reshape(x) | Op::MaxPool2d { x, .. } => vec![*x],
             Op::CrossEntropy { logits, .. } => vec![*logits],
+            Op::Conv2d { x, w, b, .. } => vec![*x, *w, *b],
         }
     }
 }
@@ -140,6 +163,46 @@ impl Graph {
             },
             value,
         )
+    }
+
+    pub fn conv2d(
+        &mut self,
+        x: NodeId,
+        w: NodeId,
+        b: NodeId,
+        stride: usize,
+        padding: usize,
+    ) -> NodeId {
+        let value = conv2d(self.value(x), self.value(w), self.value(b), stride, padding);
+        self.push(
+            Op::Conv2d {
+                x,
+                w,
+                b,
+                stride,
+                padding,
+            },
+            value,
+        )
+    }
+
+    pub fn max_pool2d(&mut self, x: NodeId, kernel: usize, stride: usize) -> NodeId {
+        let (value, _) = max_pool2d(self.value(x), kernel, stride);
+        self.push(Op::MaxPool2d { x, kernel, stride }, value)
+    }
+
+    pub fn reshape(&mut self, x: NodeId, shape: &[usize]) -> NodeId {
+        let value = self.value(x).reshape(shape);
+        self.push(Op::Reshape(x), value)
+    }
+
+    /// (N, ...) to (N, everything else), as `torch.flatten(x, 1)`.
+    pub fn flatten(&mut self, x: NodeId) -> NodeId {
+        let shape = self.value(x).shape();
+        assert!(!shape.is_empty(), "flatten: needs a batch dimension");
+        let n = shape[0];
+        let rest = shape[1..].iter().product();
+        self.reshape(x, &[n, rest])
     }
 
     pub fn value(&self, id: NodeId) -> &Tensor {
@@ -267,6 +330,27 @@ impl Graph {
                 }
                 vec![(*logits, Tensor::new(vec![n, c], d))]
             }
+            Op::Conv2d {
+                x,
+                w,
+                b,
+                stride,
+                padding,
+            } => {
+                let (dx, dw, db) = conv2d_backward(
+                    self.value(*x),
+                    self.value(*w),
+                    self.value(*b),
+                    g,
+                    *stride,
+                    *padding,
+                );
+                vec![(*x, dx), (*w, dw), (*b, db)]
+            }
+            Op::MaxPool2d { x, kernel, stride } => {
+                vec![(*x, max_pool2d_backward(self.value(*x), *kernel, *stride, g))]
+            }
+            Op::Reshape(x) => vec![(*x, g.reshape(self.value(*x).shape()))],
         }
     }
 }

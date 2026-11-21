@@ -1,4 +1,6 @@
 //! Helpers shared by the integration tests.
+// Each test file uses only some of them.
+#![allow(dead_code)]
 use coresample_nn::refdata::RefFile;
 use coresample_nn::Tensor;
 use std::path::Path;

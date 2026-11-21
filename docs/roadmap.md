@@ -67,5 +67,6 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Ogni operazione, avanti e indietro, entro 1e-5 + 1e-4·|b| da PyTorch; gradienti controllati anche con le differenze finite
 - [x] MLP 2-16-3 addestrato con SGD per 100 passi: ogni loss e ogni peso finale entro 4e-7 da PyTorch
 - [x] Controllo che i test sappiano fallire: ReLU con gradiente 1 in zero, cross-entropy senza media sul batch
-- [ ] Rete convoluzionale (conv2d, pooling)
+- [x] Rete convoluzionale: conv2d (stride, padding, kernel rettangolari), max pool con i pareggi come PyTorch, flatten; CNN addestrata per 60 passi entro 3e-7 da PyTorch
+- [x] Controllo che i test sappiano fallire: pareggi del max pool, kernel ribaltato, stride ignorato. Il kernel ribaltato passa le differenze finite e lo trova solo il confronto con PyTorch
 - [ ] Blocco transformer (layer norm, softmax, attenzione)

@@ -113,11 +113,94 @@ def mlp_case() -> dict[str, torch.Tensor]:
             "mlp.losses": torch.tensor(losses), **final}
 
 
+def conv_cases() -> dict[str, torch.Tensor]:
+    """conv2d, max_pool2d and flatten, forward and backward. Tensors are NCHW;
+    conv weights are (C_out, C_in, kH, kW), as in PyTorch."""
+    torch.manual_seed(3)
+    out: dict[str, torch.Tensor] = {}
+
+    # name: (N, C_in, H, W, C_out, kH, kW, stride, padding)
+    convs = {"conv_s1p0": (2, 3, 6, 7, 4, 3, 2, 1, 0), "conv_s2p1": (2, 2, 7, 7, 3, 3, 3, 2, 1)}
+    for name, (n, cin, h, w, cout, kh, kw, stride, pad) in convs.items():
+        x, wt, b = leaf(n, cin, h, w), leaf(cout, cin, kh, kw), leaf(cout)
+        y = F.conv2d(x, wt, b, stride=stride, padding=pad)
+        g = torch.randn_like(y)
+        y.backward(g)
+        out |= {f"{name}.x": x, f"{name}.w": wt, f"{name}.b": b, f"{name}.g": g, f"{name}.y": y,
+                f"{name}.dx": x.grad, f"{name}.dw": wt.grad, f"{name}.db": b.grad,
+                f"{name}.params": torch.tensor([stride, pad], dtype=torch.float32)}
+
+    # Ties: PyTorch sends a window's gradient to the first maximum in row-major order.
+    x = torch.randn(2, 3, 6, 6)
+    x[0, 0, 0:2, 0:2] = 0.0          # a window of equal values, as after ReLU
+    x[0, 1, 2, 2] = x[0, 1, 2, 3] = x[0, 1, 3, 2] = 5.0  # three equal maxima
+    x.requires_grad_(True)
+    y = F.max_pool2d(x, kernel_size=2, stride=2)
+    g = torch.randn_like(y)
+    y.backward(g)
+    out |= {"maxpool.x": x, "maxpool.g": g, "maxpool.y": y, "maxpool.dx": x.grad}
+
+    x = leaf(2, 3, 2, 2)
+    y = x.flatten(1)
+    g = torch.randn_like(y)
+    y.backward(g)
+    out |= {"flatten.x": x, "flatten.g": g, "flatten.y": y, "flatten.dx": x.grad}
+    return out
+
+
+def bars(n_per_class: int, gen: torch.Generator) -> tuple[torch.Tensor, torch.Tensor]:
+    """8x8 images of a horizontal bar, a vertical bar or a diagonal, at random
+    positions, plus noise: telling them apart needs spatial filters."""
+    xs, ys = [], []
+    for c in range(3):
+        for _ in range(n_per_class):
+            img = 0.3 * torch.randn(1, 8, 8, generator=gen)
+            k = int(torch.randint(1, 7, (1,), generator=gen))
+            if c == 0:
+                img[0, k, 1:7] += 1.0
+            elif c == 1:
+                img[0, 1:7, k] += 1.0
+            else:
+                idx = torch.arange(1, 7)
+                img[0, idx, idx] += 1.0
+            xs.append(img)
+            ys.append(c)
+    return torch.stack(xs), torch.tensor(ys)
+
+
+def cnn_case() -> dict[str, torch.Tensor]:
+    """conv(1->4, 3x3, pad 1) -> ReLU -> maxpool 2 -> flatten -> linear(64->3),
+    trained with full-batch SGD: initial weights, every loss, final weights."""
+    gen = torch.Generator().manual_seed(4)
+    torch.manual_seed(4)
+    x, y = bars(16, gen)
+    conv, lin = torch.nn.Conv2d(1, 4, 3, padding=1), torch.nn.Linear(64, 3)
+    init = {"cnn.conv_w": conv.weight.clone(), "cnn.conv_b": conv.bias.clone(),
+            "cnn.lin_w": lin.weight.T.clone(), "cnn.lin_b": lin.bias.clone()}
+    lr = 0.1
+    opt = torch.optim.SGD(list(conv.parameters()) + list(lin.parameters()), lr=lr)
+    losses = []
+    for _ in range(60):
+        opt.zero_grad()
+        h = F.max_pool2d(F.relu(conv(x)), 2)
+        loss = F.cross_entropy(lin(h.flatten(1)), y)
+        loss.backward()
+        opt.step()
+        losses.append(loss.item())
+    assert math.isfinite(losses[-1]) and losses[-1] < 0.8 * losses[0], losses
+    final = {"cnn.final.conv_w": conv.weight, "cnn.final.conv_b": conv.bias,
+             "cnn.final.lin_w": lin.weight.T, "cnn.final.lin_b": lin.bias}
+    return {"cnn.x": x, "cnn.y": y.float(), "cnn.lr": torch.tensor([lr]), **init,
+            "cnn.losses": torch.tensor(losses), **final}
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(1)  # one fixed summation order on every machine
     write_ref(OUT / "ops.ref", ops_cases())
     write_ref(OUT / "mlp.ref", mlp_case())
+    write_ref(OUT / "conv.ref", conv_cases())
+    write_ref(OUT / "cnn.ref", cnn_case())
     (OUT / "TORCH_VERSION").write_text(torch.__version__ + "\n")
     return 0
 
