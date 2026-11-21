@@ -124,6 +124,32 @@ void log_commit(FILE* out, const Vcs_core& c) {
   std::fputc('\n', out);
 }
 
+#ifdef CS_PIPELINE
+// One line per cycle: the instruction (fetch sequence number) in each stage,
+// "-" for a bubble, then the hazard of this cycle. scripts/pipeline_to_kanata.py
+// turns it into a Kanata trace.
+//   <cycle> F <id>:<pc> D <id> X <id> M <id> W <id> [stall] [flush=<cause>]
+void log_pipeline(FILE* out, uint64_t cycle, const Vcs_core& c) {
+  auto stage = [&](const char* name, bool valid, uint32_t id) {
+    if (valid) std::fprintf(out, " %s %" PRIu32, name, id);
+    else std::fprintf(out, " %s -", name);
+  };
+  std::fprintf(out, "%" PRIu64, cycle);
+  if (c.dbg_if_valid) std::fprintf(out, " F %" PRIu32 ":%08" PRIx32, uint32_t(c.dbg_if_id), uint32_t(c.dbg_if_pc));
+  else std::fprintf(out, " F -");
+  stage("D", c.dbg_id_valid, c.dbg_id_id);
+  stage("X", c.dbg_ex_valid, c.dbg_ex_id);
+  stage("M", c.dbg_mem_valid, c.dbg_mem_id);
+  stage("W", c.dbg_wb_valid, c.dbg_wb_id);
+  if (c.dbg_stall) std::fprintf(out, " stall");
+  if (c.dbg_flush) {
+    static const char* const kCause[] = {"?", "branch", "jump", "fence.i", "trap"};
+    std::fprintf(out, " flush=%s", kCause[c.dbg_flush_cause < 5 ? c.dbg_flush_cause : 0]);
+  }
+  std::fputc('\n', out);
+}
+#endif
+
 int finish(int code, const std::string& line, uint64_t cycles) {
   std::printf("cycles %" PRIu64 "\n%s\n", cycles, line.c_str());
   return code;
@@ -135,15 +161,17 @@ int main(int argc, char** argv) {
   const char* elf_path = nullptr;
   const char* trace_path = nullptr;
   const char* vcd_path = nullptr;
+  const char* pipe_path = nullptr;
   uint64_t max_cycles = 1'000'000;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--trace") && i + 1 < argc) trace_path = argv[++i];
     else if (!std::strcmp(argv[i], "--vcd") && i + 1 < argc) vcd_path = argv[++i];
+    else if (!std::strcmp(argv[i], "--pipeline") && i + 1 < argc) pipe_path = argv[++i];
     else if (!std::strcmp(argv[i], "--max-cycles") && i + 1 < argc) max_cycles = std::stoull(argv[++i]);
     else elf_path = argv[i];
   }
   if (!elf_path) {
-    std::fprintf(stderr, "usage: %s [--trace FILE] [--vcd FILE] [--max-cycles N] program.elf\n", argv[0]);
+    std::fprintf(stderr, "usage: %s [--trace FILE] [--vcd FILE] [--pipeline FILE] [--max-cycles N] program.elf\n", argv[0]);
     return 2;
   }
 
@@ -157,6 +185,14 @@ int main(int argc, char** argv) {
   if (trace_path && !(trace = std::fopen(trace_path, "w")))
     return finish(2, std::string("RESULT ERROR cannot write ") + trace_path, 0);
   std::unique_ptr<FILE, int (*)(FILE*)> trace_guard(trace, [](FILE* f) { return f ? std::fclose(f) : 0; });
+
+#ifndef CS_PIPELINE
+  if (pipe_path) return finish(2, "RESULT ERROR --pipeline needs the pipelined core (CORE=pipe)", 0);
+#endif
+  FILE* pipe = nullptr;
+  if (pipe_path && !(pipe = std::fopen(pipe_path, "w")))
+    return finish(2, std::string("RESULT ERROR cannot write ") + pipe_path, 0);
+  std::unique_ptr<FILE, int (*)(FILE*)> pipe_guard(pipe, [](FILE* f) { return f ? std::fclose(f) : 0; });
 
   auto ctx = std::make_unique<VerilatedContext>();
   ctx->commandArgs(argc, argv);
@@ -186,37 +222,52 @@ int main(int argc, char** argv) {
   }
   core->rst = 0;
 
+  // A pipelined core retires nothing for a few cycles after reset and after
+  // each flush; much longer than that means it is stuck.
+  constexpr uint64_t kMaxIdleCycles = 64;
+  uint64_t idle = 0;
   for (uint64_t cycle = 0; cycle < max_cycles; ++cycle) {
     // Settle the combinational paths: pc -> instruction -> data address -> load data.
     core->clk = 0;
     core->eval();
-    if (!ram.contains(core->imem_addr, 4))
-      return finish(2, "RESULT ERROR fetch outside RAM", cycle);
-    core->imem_rdata = ram.read32(core->imem_addr);
+    // A pipelined core may fetch past the program on a path it will discard;
+    // only an instruction that retires from outside RAM is an error.
+    core->imem_rdata = ram.contains(core->imem_addr, 4) ? ram.read32(core->imem_addr) : 0;
     core->eval();
     if ((core->dmem_re || core->dmem_we) && !ram.contains(core->dmem_addr, 4)) {
       char msg[96];
-      std::snprintf(msg, sizeof msg, "RESULT ERROR data access outside RAM at pc 0x%08x",
-                    uint32_t(core->rvfi_pc_rdata));
+      std::snprintf(msg, sizeof msg, "RESULT ERROR data access outside RAM at 0x%08x",
+                    uint32_t(core->dmem_addr));
       return finish(2, msg, cycle);
     }
     core->dmem_rdata = core->dmem_re ? ram.read32(core->dmem_addr) : 0;
     core->eval();
     dump();
+#ifdef CS_PIPELINE
+    if (pipe) log_pipeline(pipe, cycle, *core);
+#endif
 
-    if (!core->rvfi_valid) return finish(2, "RESULT ERROR core is not retiring", cycle);
-    if (trace) log_commit(trace, *core);
-    if (core->rvfi_trap) {
-      char msg[96];
-      std::snprintf(msg, sizeof msg, "RESULT ERROR trap at pc 0x%08x insn 0x%08x",
-                    uint32_t(core->rvfi_pc_rdata), uint32_t(core->rvfi_insn));
-      return finish(2, msg, cycle);
+    // Retirement, reported on RVFI: any number of cycles after the fetch.
+    bool to_host = false;
+    uint32_t host_value = 0;
+    if (core->rvfi_valid) {
+      idle = 0;
+      if (trace) log_commit(trace, *core);
+      if (core->rvfi_trap) {
+        char msg[96];
+        std::snprintf(msg, sizeof msg, "RESULT ERROR trap at pc 0x%08x insn 0x%08x",
+                      uint32_t(core->rvfi_pc_rdata), uint32_t(core->rvfi_insn));
+        return finish(2, msg, cycle);
+      }
+      // The program ends when a nonzero store to `tohost` retires.
+      to_host = (core->rvfi_mem_wmask & 1u) && core->rvfi_mem_addr == (prog.tohost & ~3u) &&
+                core->rvfi_mem_wdata != 0;
+      host_value = core->rvfi_mem_wdata;
+    } else if (++idle > kMaxIdleCycles) {
+      return finish(2, "RESULT ERROR core stopped retiring", cycle);
     }
 
     // Memory write, then the clock edge.
-    const bool to_host = core->dmem_we && core->dmem_addr == (prog.tohost & ~3u) &&
-                         (core->dmem_wmask & 1u) && core->dmem_wdata != 0;
-    const uint32_t host_value = core->dmem_wdata;
     if (core->dmem_we) ram.write32(core->dmem_addr, core->dmem_wdata, core->dmem_wmask);
     core->clk = 1;
     core->eval();

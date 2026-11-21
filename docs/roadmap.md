@@ -86,4 +86,9 @@ Ordine: prima quantizzazione e compilatore (il percorso verso G2), poi la pipeli
 - [x] **G2 raggiunto:** la CNN gira sul core su tutte le 48 immagini, output identico al riferimento int8 byte per byte; passa anche su Spike; su un'immagine 75 805 istruzioni identiche a Spike. 3,6 milioni di cicli, 89% nella convoluzione
 - [x] Test del compilatore: strati lineari su tutti i percorsi della riquantizzazione, convoluzioni di varie geometrie, pooling, auto-controllo, mappa che copre ogni istruzione eseguita
 - [x] Controllo che i test sappiano fallire: riquantizzazione senza arrotondamento, `mulhu` al posto di `mulh`, pesi non trasposti, controllo del padding mancante. Il confronto con Spike da solo non li troverebbe: core e Spike eseguono lo stesso programma sbagliato. Li trova l'auto-controllo contro Rust int8
-- [ ] Pipeline a 5 stadi con traccia Kanata e causa di ogni stallo
+- [x] Pipeline a 5 stadi (`cs_pipe.sv`): forwarding da MEM e WB, bypass dal WB in lettura, stallo load-use, salti risolti in EX, FENCE.I come refetch. Tutte le suite girano anche sulla pipeline (`CORE=pipe`), identiche a Spike
+- [x] Traccia Kanata (`pipeline_to_kanata.py`) con la causa di ogni stallo e di ogni istruzione scartata; conto dei cicli in cui ogni bolla ha esattamente una causa
+- [x] CNN sulla pipeline: 88 030 cicli per immagine, CPI 1,161; i branch presi costano più degli stalli load-use (8,4% contro 5,1%)
+- [x] Controllo che i test sappiano fallire: forwarding da MEM, forwarding da WB, bypass dal WB, stallo load-use, flush dello stadio ID, FENCE.I. Il bug di FENCE.I sfuggiva a riscv-tests e arch-test: aggiunto `sw/tests/fence_i_next.S`, che lo trova
+
+**Fase 2 completa.** Il livello "operazione" è nell'ELF (`.cs_map`) ma non ancora nelle viste: è il primo lavoro della fase 3.

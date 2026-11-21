@@ -20,8 +20,12 @@ fn root() -> PathBuf {
         .to_path_buf()
 }
 
+/// The simulator to test on: $CS_SIM (set by `make compiler-test CORE=...`),
+/// or the single-cycle core.
 fn sim() -> PathBuf {
-    let p = root().join("build/sim/cs_sim");
+    let p = std::env::var("CS_SIM")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| root().join("build/sim/cs_sim"));
     assert!(
         p.exists(),
         "{} not found: run `make sim` first",

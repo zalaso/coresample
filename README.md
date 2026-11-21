@@ -4,7 +4,7 @@ A core sample of a neural network: follow one token from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 2, G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
+> Status: phase 2 complete. G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference, on the single-cycle core and on the 5-stage pipeline, whose every lost cycle is traced to its cause. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -18,10 +18,11 @@ RISC-V CPU designed from scratch and verified at every level.
 ## Layout
 
 ```
-hw/rtl/       SystemVerilog sources (cs_core.sv: single-cycle RV32IM core)
+hw/rtl/       SystemVerilog sources: cs_core.sv (single-cycle), cs_pipe.sv (5-stage pipeline)
 hw/sim/       Verilator testbench: ELF loader, RAM, Spike-format commit log
 sw/env/       Minimal environment to run riscv-tests on the core and on Spike
 sw/arch-test/ riscv-arch-test (ACT4) configuration for the core
+sw/tests/     Directed tests for cases the suites miss (e.g. FENCE.I on the next instruction)
 sw/runtime/   Start-up code and linker script for C programs
 sw/programs/  C programs for the core (dense_int8: one int8 dense layer with ReLU)
 scripts/      Dependency installer, test runners, Spike comparison, trace converter
@@ -42,6 +43,7 @@ make unit                 # unit tests of the Python tools
 make nn-test              # network simulator tests against PyTorch (needs cargo)
 make compiler-test        # compiled networks on the core, checked against the int8 reference
 make g2                   # the int8 CNN on the core: all 48 images, plus Spike and a trace
+make g2 CORE=pipe         # every target also runs on the pipeline; this one adds a Kanata trace
 ```
 
 Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
@@ -156,3 +158,36 @@ instruction matches Spike's. The three checks split the work: Spike checks the
 CPU, the Rust int8 reference checks the compiler, PyTorch checks the reference.
 The generated code is deliberately plain (loops and bounds checks); making it
 fast is a later step that the inspector will measure.
+
+## 5-stage pipeline
+
+`hw/rtl/cs_pipe.sv` is a classic IF ID EX MEM WB pipeline: forwarding from MEM
+and WB into EX, a register-file bypass from WB, a one-cycle stall on load-use,
+branches and jumps resolved in EX (a taken one discards the two younger
+instructions), FENCE.I as a refetch. It must retire exactly what the
+single-cycle core retires: every suite runs on it (`CORE=pipe`) with the same
+instruction-by-instruction comparison against Spike.
+
+With `--pipeline` the simulator logs which instruction is in each stage every
+cycle; `scripts/pipeline_to_kanata.py` turns that into a Kanata trace for
+[Konata](https://github.com/shioyadan/Konata), with every stall explained (and
+an arrow to the load it waits for) and every discarded instruction attributed
+to the branch or jump that discarded it. It also accounts for every cycle: an
+empty write-back slot must have exactly one cause. On one CNN image:
+
+| | cycles | share |
+| --- | ---: | ---: |
+| instructions retired | 75,805 | 86.1% |
+| taken branches (2 discarded instructions each) | 7,426 | 8.4% |
+| load-use stalls | 4,515 | 5.1% |
+| jumps | 280 | 0.3% |
+| pipeline fill | 4 | 0.0% |
+| **total** | **88,030** | CPI 1.161 |
+
+Taken branches cost more than load-use stalls: the compiler's loops branch
+back on almost every iteration. That is where optimization should start.
+
+The existing FENCE.I tests did not notice a pipeline whose FENCE.I does
+nothing, because they always jump to the new code and the jump refetches.
+`sw/tests/fence_i_next.S` patches the very next instruction, which only
+FENCE.I can make visible, and catches it.
