@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coresample inspector</title>
+<meta name="description" content="Where a neural network's cycles go on a RISC-V core designed from scratch: run, image, layer, operation, instruction, every count exact.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<aside class="rail" aria-label="Run and view">
+  <div class="mark">Coresample<span>Inspector · bars CNN · 48 images</span></div>
+  <fieldset class="seg" id="core">
+    <legend>Core</legend>
+    <label><input type="radio" name="core" value="single"><span>Single-cycle</span></label>
+    <label><input type="radio" name="core" value="pipe" checked><span>Pipeline</span></label>
+  </fieldset>
+  <fieldset class="seg" id="mode">
+    <legend>View</legend>
+    <label><input type="radio" name="mode" value="run" checked><span>One run</span></label>
+    <label><input type="radio" name="mode" value="compare"><span>Compare cores</span></label>
+  </fieldset>
+  <nav class="railnav" aria-label="Sections">
+    <span class="raillabel">On this page</span>
+    <a href="#icicle">Where the cycles go</a>
+    <a href="#timeline">Timeline</a>
+    <a href="#card">Selection</a>
+  </nav>
+  <p class="railnote">An int8 CNN compiled to RV32IM, run on a core designed from scratch. Every count here is exact: each cycle is charged to one instruction, and lost cycles carry their cause.</p>
+  <nav class="railnav" aria-label="Other views of the same run">
+    <span class="raillabel">Other tools</span>
+    <a href="https://github.com/zalaso/coresample/releases/tag/v0.2.0">Perfetto trace of one image</a>
+    <a href="https://github.com/zalaso/coresample#5-stage-pipeline">Konata pipeline trace (make g2 CORE=pipe)</a>
+    <a href="https://github.com/zalaso/coresample#looking-at-a-run">Surfer waveforms (make trace)</a>
+    <a href="https://github.com/zalaso/coresample">Source and method on GitHub</a>
+  </nav>
+</aside>
+
+<main id="main">
+  <h1 class="band" id="band">Loading the trace index…</h1>
+  <dl class="facts" id="facts"></dl>
+  <section class="icicle" id="icicle" aria-label="Where the cycles go: run, image, layer, operation"></section>
+  <section class="timeline" id="timeline" aria-labelledby="tl-h">
+    <h2 class="sect" id="tl-h"><span>Timeline</span><span class="legend" id="tl-legend"></span></h2>
+    <canvas id="tl" tabindex="0" role="img" aria-describedby="tl-read"></canvas>
+    <div class="axis" id="tl-axis"></div>
+    <p class="readout" id="tl-read" aria-live="polite"></p>
+  </section>
+  <section class="compare" id="compare" hidden aria-labelledby="cmp-h">
+    <h2 class="sect" id="cmp-h">What the pipeline adds, operation by operation</h2>
+    <div class="tablewrap"><table id="cmp"></table></div>
+  </section>
+</main>
+
+<aside class="card" id="card" aria-live="polite"></aside>
+<p class="error" id="error" role="alert" hidden></p>
+</body>
+</html>
