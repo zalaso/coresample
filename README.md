@@ -48,6 +48,7 @@ make nn-test              # network simulator tests against PyTorch (needs cargo
 make compiler-test        # compiled networks on the core, checked against the int8 reference
 make g2                   # the int8 CNN on the core: all 48 images, plus Spike and a trace
 make g2 CORE=pipe         # every target also runs on the pipeline; this one adds a Kanata trace
+make index CORE=pipe      # multi-resolution index of all 48 images (build/index-pipe)
 ```
 
 Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
@@ -215,3 +216,23 @@ image on the pipeline:
 
 The convolution's multiply-accumulate loop is four fifths of the run: that is
 where compiler optimizations will pay.
+
+## Trace index
+
+A full run is too big to look at raw: all 48 images on the pipeline are 4.2
+million cycles, and the two logs weigh 440 MB. `scripts/trace_index.py`
+streams them (constant memory: 21 MB) into an index that answers exact
+questions about any range of cycles:
+
+* raw chunks of 4096 cycles, 7 bytes per cycle (pc, region, cause), loaded only
+  when zooming in (29 MB in all);
+* a pyramid of bins (4096, 65,536, 1M cycles) counting cycles per region and
+  bubbles per cause, in `index.json` (214 kB);
+* the call tree: run → image → layer, with each node's own and total counts.
+
+A query over 2.9 million cycles takes 14 ms, combining whole bins with raw
+cycles at the edges. Tests compare every range of small runs with counting
+cycle by cycle, and the totals of the 48-image index with `op_report`, layer by
+layer. One thing the index shows at once: images do not all cost the same.
+They range from 75,160 to 75,192 cycles on the single-cycle core, depending on
+how often requantization saturates and which value wins each pooling window.

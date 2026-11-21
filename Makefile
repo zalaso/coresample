@@ -14,6 +14,7 @@
 #   make g2       compile the int8 CNN, run it on the core and on Spike (all 48
 #                 images), and write the Perfetto trace of one image
 #   make compiler-test  end-to-end tests of the compiler on the core
+#   make index    trace index of the CNN on all 48 images (build/index[-pipe])
 
 RISCV_PREFIX ?= riscv64-unknown-elf-
 VERILATOR    ?= verilator
@@ -53,7 +54,7 @@ TEST_CFLAGS := -march=rv32im_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany 
                -fvisibility=hidden -nostdlib -nostartfiles \
                -Isw/env -I$(ISA_DIR)/macros/scalar -Tsw/env/link.ld
 
-.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref g2 compiler-test check-tests clean
+.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref g2 compiler-test index check-tests clean
 all: sim
 
 sim: $(SIM)
@@ -159,6 +160,14 @@ g2: sim
 	$(PYTHON) scripts/trace_to_perfetto.py --elf $(G2)/cnn1.elf --log $(G2)/cnn1.core.log $(G2_TIMING) \
 	  -o $(G2)/cnn1.perfetto.json
 	$(PYTHON) scripts/op_report.py --elf $(G2)/cnn1.elf $(G2_REPORT)
+
+# The index of the whole 48-image run. The raw logs (hundreds of MB) are
+# streamed by the builder and can be deleted afterwards.
+INDEX := $(BUILD)/index$(SUFFIX)
+INDEX_PIPE := $(if $(filter pipe,$(CORE)),--pipeline $(G2)/cnn48.pipeline.log)
+index: g2
+	$(SIM) --max-cycles 50000000 --trace $(G2)/cnn48.core.log $(INDEX_PIPE) $(G2)/cnn48.elf
+	$(PYTHON) scripts/trace_index.py --elf $(G2)/cnn48.elf --log $(G2)/cnn48.core.log $(INDEX_PIPE) -o $(INDEX)
 
 compiler-test: sim
 	CS_SIM=$(abspath $(SIM)) $(CARGO) test -p coresample-compiler

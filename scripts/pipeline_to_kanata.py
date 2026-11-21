@@ -42,32 +42,32 @@ class Cycle:
 
 
 def parse_pipeline_log(text: str) -> list[Cycle]:
-    cycles = []
-    for line in text.splitlines():
-        if not line.strip():
-            continue
-        tok = line.split()
-        if len(tok) < 11 or tok[1::2][:5] != list(STAGES):
-            raise ValueError(f"malformed pipeline line: {line!r}")
-        c = Cycle(n=int(tok[0]), stages={})
-        for name, value in zip(STAGES, tok[2:11:2]):
-            if value == "-":
-                c.stages[name] = None
-            elif name == "F":
-                fid, pc = value.split(":")
-                c.stages["F"] = c.fetch = int(fid)
-                c.fetch_pc = int(pc, 16)
-            else:
-                c.stages[name] = int(value)
-        for extra in tok[11:]:
-            if extra == "stall":
-                c.stall = True
-            elif extra.startswith("flush="):
-                c.flush = extra.split("=", 1)[1]
-            else:
-                raise ValueError(f"unknown field {extra!r} in {line!r}")
-        cycles.append(c)
-    return cycles
+    return [parse_line(line) for line in text.splitlines() if line.strip()]
+
+
+def parse_line(line: str) -> Cycle:
+    """One line of the pipeline log."""
+    tok = line.split()
+    if len(tok) < 11 or tok[1::2][:5] != list(STAGES):
+        raise ValueError(f"malformed pipeline line: {line!r}")
+    c = Cycle(n=int(tok[0]), stages={})
+    for name, value in zip(STAGES, tok[2:11:2]):
+        if value == "-":
+            c.stages[name] = None
+        elif name == "F":
+            fid, pc = value.split(":")
+            c.stages["F"] = c.fetch = int(fid)
+            c.fetch_pc = int(pc, 16)
+        else:
+            c.stages[name] = int(value)
+    for extra in tok[11:]:
+        if extra == "stall":
+            c.stall = True
+        elif extra.startswith("flush="):
+            c.flush = extra.split("=", 1)[1]
+        else:
+            raise ValueError(f"unknown field {extra!r} in {line!r}")
+    return c
 
 
 @dataclass
@@ -81,17 +81,34 @@ class Accounting:
     blame: list[tuple[str, int | None]] = field(default_factory=list)
 
 
-def account(cycles: list[Cycle]) -> Accounting:
-    """Explains every empty write-back slot by tracing the bubble back to the
-    cycle that made it. Raises ValueError if a bubble has no cause."""
+class BubbleTracer:
+    """Explains empty write-back slots one cycle at a time, with constant
+    memory: a bubble is traced back at most four stages, so only the last few
+    cycles are kept. `push` returns None for a retiring cycle, else
+    (cause, instruction to blame); it raises ValueError if a bubble has no cause."""
 
-    def why(stage: str, t: int) -> tuple[str, int | None]:
-        c = cycles[t]
+    DEPTH = 6
+
+    def __init__(self) -> None:
+        self.recent: collections.deque[Cycle] = collections.deque(maxlen=self.DEPTH)
+        self.first = True
+
+    def push(self, c: Cycle) -> tuple[str, int | None] | None:
+        self.recent.append(c)
+        at_start, self.first = self.first, False
+        if c.stages["W"] is not None:
+            return None
+        return self._why("W", len(self.recent) - 1, at_start)
+
+    def _why(self, stage: str, k: int, at_start: bool = False) -> tuple[str, int | None]:
+        c = self.recent[k]
         if c.stages[stage] is not None:
-            raise ValueError(f"cycle {t}: {stage} is not empty")
-        if t == 0:
+            raise ValueError(f"cycle {c.n}: {stage} is not empty")
+        if at_start or (k == 0 and c.n == 0):
             return "fill", None
-        prev = cycles[t - 1]
+        if k == 0:
+            raise ValueError(f"cycle {c.n}: bubble traced back past the kept history")
+        prev = self.recent[k - 1]
         if stage == "D":
             if prev.flush:  # the instruction in IF was discarded
                 return prev.flush, prev.stages["X"]
@@ -99,7 +116,7 @@ def account(cycles: list[Cycle]) -> Accounting:
                 return ("fill" if prev.n < 1 else "fetch stopped"), None
         elif stage == "X":
             if prev.stages["D"] is None:
-                return why("D", t - 1)
+                return self._why("D", k - 1)
             if prev.stall:
                 return "load-use", prev.stages["D"]
             if prev.flush:  # the instruction in ID was discarded
@@ -107,18 +124,23 @@ def account(cycles: list[Cycle]) -> Accounting:
         else:  # M and W just pass on what the previous stage had
             before = STAGES[STAGES.index(stage) - 1]
             if prev.stages[before] is None:
-                return why(before, t - 1)
-        raise ValueError(f"cycle {t}: bubble in {stage} has no cause")
+                return self._why(before, k - 1)
+        raise ValueError(f"cycle {c.n}: bubble in {stage} has no cause")
 
+
+def account(cycles: list[Cycle]) -> Accounting:
+    """Explains every empty write-back slot by tracing the bubble back to the
+    cycle that made it. Raises ValueError if a bubble has no cause."""
     acc = Accounting()
     counts: collections.Counter[str] = collections.Counter()
-    for t, c in enumerate(cycles):
-        if c.stages["W"] is None:
-            cause, culprit = why("W", t)
-            counts[cause] += 1
-            acc.blame.append((cause, culprit))
-        else:
+    tracer = BubbleTracer()
+    for c in cycles:
+        bubble = tracer.push(c)
+        if bubble is None:
             acc.retired += 1
+        else:
+            counts[bubble[0]] += 1
+            acc.blame.append(bubble)
     acc.bubbles = dict(counts)
     seen = {c.fetch for c in cycles if c.fetch is not None}
     retired = {c.stages["W"] for c in cycles if c.stages["W"] is not None}

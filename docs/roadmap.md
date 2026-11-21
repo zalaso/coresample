@@ -100,7 +100,8 @@ Decisione: G3 con la CNN; il transformer sul core è la prima estensione dopo G3
 - [x] Livello "operazione" nelle viste: lettore di `.cs_map` (`csmap.py`), tratti di operazione in Perfetto tra strato e istruzione, tempi reali della pipeline (uno stallo allunga l'istruzione che aspetta)
 - [x] Report per strato e operazione (`op_report.py`): ogni ciclo addebitato a una sola riga (load-use all'istruzione che aspetta, svuotamenti al salto), le righe sommano al totale. Il `mac` della convoluzione è l'80% dei cicli
 - [x] Controlli tra livelli: in ogni strato la somma delle operazioni è uguale alla durata dello strato, su entrambi i core; sulla pipeline il frame radice copre esattamente tutti i cicli
-- [ ] Indice della traccia a più risoluzioni
+- [x] Indice della traccia (`trace_index.py`): blocchi grezzi da 4096 cicli, piramide di contenitori, albero esecuzione → immagine → strato. 48 immagini sulla pipeline: 4,2 milioni di cicli, `index.json` 214 kB, costruito a flusso con 21 MB di RAM; domande esatte su qualunque intervallo in decine di ms
+- [x] Controlli: ogni intervallo confrontato col conto ciclo per ciclo (anche con le bolle), totali per operazione e per strato uguali a `op_report`
 - [ ] Flame graph su tutti i livelli e pannelli collegati, in un'interfaccia nostra
 - [ ] Confronto tra due esecuzioni
 - [ ] Tracce precalcolate nel browser (sito statico)
