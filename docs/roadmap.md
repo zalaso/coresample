@@ -104,4 +104,6 @@ Decisione: G3 con la CNN; il transformer sul core è la prima estensione dopo G3
 - [x] Controlli: ogni intervallo confrontato col conto ciclo per ciclo (anche con le bolle), totali per operazione e per strato uguali a `op_report`
 - [x] Ispettore web (`web/`, statico): fasce esecuzione → immagine → strato → operazione, timeline, scheda della selezione con istruzioni e campi della codifica; direzione visiva "reference card" scelta in un giro di design
 - [x] Cambio di core e vista di confronto: per ogni operazione i cicli aggiunti dalla pipeline e la loro causa
-- [ ] Tracce precalcolate nel browser (sito statico)
+- [x] Tracce precalcolate nel browser: l'ispettore con i dati delle due esecuzioni è pubblicato su GitHub Pages (https://zalaso.github.io/coresample/) da un ramo `gh-pages` a commit unico (`make pages`), verificato sul sito: stessi numeri della versione locale
+
+**G3 raggiunto:** prima versione completa. Prossima estensione decisa: il transformer quantizzato sul core, per seguire un token dal modello allo stallo.

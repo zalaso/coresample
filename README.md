@@ -4,11 +4,15 @@ A core sample of a neural network: follow one input from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
+**Explore a run in the browser: [zalaso.github.io/coresample](https://zalaso.github.io/coresample/)**, an
+int8 CNN on 48 images, on the single-cycle core and on the pipeline, every
+cycle accounted for.
+
 Today the network on the core is a small int8 CNN that classifies images. The
 transformer already trains in the simulator; following one of its tokens down
 to the pipeline is the next extension, after the first complete version (G3).
 
-> Status: phase 3 under way: every view now has the operation level between layers and instructions. Phase 2 complete, G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference, on the single-cycle core and on the 5-stage pipeline, whose every lost cycle is traced to its cause. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
+> Status: G3 reached, the first complete version: the inspector is live on GitHub Pages. Phase 2 complete, G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference, on the single-cycle core and on the 5-stage pipeline, whose every lost cycle is traced to its cause. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -51,6 +55,7 @@ make g2                   # the int8 CNN on the core: all 48 images, plus Spike 
 make g2 CORE=pipe         # every target also runs on the pipeline; this one adds a Kanata trace
 make index CORE=pipe      # multi-resolution index of all 48 images (build/index-pipe)
 make web                  # put both indexes in web/data; then serve web/ over HTTP
+make pages                # publish web/ with its data to the gh-pages branch (GitHub Pages)
 ```
 
 Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
@@ -256,4 +261,9 @@ python3 -m http.server 8765 --directory web   # then open http://localhost:8765
 ```
 
 The visual world is the RISC-V reference card: card stock, ruled tables,
-reversed green section bands (see `PRODUCT.md` for the product context).
+reversed green section bands (see `PRODUCT.md` for the product context and
+`DESIGN.md` for the design system).
+
+The public copy lives on the `gh-pages` branch, published by `make pages` as a
+single commit that each publish replaces, so the ~50 MB of trace data never
+piles up in the history of `main`.
