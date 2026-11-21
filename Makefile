@@ -15,6 +15,7 @@
 #                 images), and write the Perfetto trace of one image
 #   make compiler-test  end-to-end tests of the compiler on the core
 #   make index    trace index of the CNN on all 48 images (build/index[-pipe])
+#   make web      put both indexes in web/data for the inspector (serve web/ over HTTP)
 
 RISCV_PREFIX ?= riscv64-unknown-elf-
 VERILATOR    ?= verilator
@@ -54,7 +55,7 @@ TEST_CFLAGS := -march=rv32im_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany 
                -fvisibility=hidden -nostdlib -nostartfiles \
                -Isw/env -I$(ISA_DIR)/macros/scalar -Tsw/env/link.ld
 
-.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref g2 compiler-test index check-tests clean
+.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref g2 compiler-test index web check-tests clean
 all: sim
 
 sim: $(SIM)
@@ -168,6 +169,15 @@ INDEX_PIPE := $(if $(filter pipe,$(CORE)),--pipeline $(G2)/cnn48.pipeline.log)
 index: g2
 	$(SIM) --max-cycles 50000000 --trace $(G2)/cnn48.core.log $(INDEX_PIPE) $(G2)/cnn48.elf
 	$(PYTHON) scripts/trace_index.py --elf $(G2)/cnn48.elf --log $(G2)/cnn48.core.log $(INDEX_PIPE) -o $(INDEX)
+
+# The inspector reads both cores' indexes; build them first with
+# `make index` and `make index CORE=pipe`.
+web:
+	test -f $(BUILD)/index/index.json && test -f $(BUILD)/index-pipe/index.json
+	rm -rf web/data && mkdir -p web/data
+	cp -r $(BUILD)/index web/data/single
+	cp -r $(BUILD)/index-pipe web/data/pipe
+	printf '%s\n' '{"runs": [{"id": "single", "path": "data/single"}, {"id": "pipe", "path": "data/pipe"}]}' > web/data/runs.json
 
 compiler-test: sim
 	CS_SIM=$(abspath $(SIM)) $(CARGO) test -p coresample-compiler

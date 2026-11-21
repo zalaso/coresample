@@ -188,6 +188,23 @@ class G2OneImage(unittest.TestCase):
             expected = sum(r.cycles for r in self.rows if r.function == f)
             self.assertEqual(per_function.get(f, 0), expected, f)
 
+    def test_per_instruction_counts_add_up(self):
+        # Every cycle is charged to one instruction (or to nobody: the fill),
+        # and per region the instructions add up to the region's cycles.
+        code = self.idx.code
+        self.assertEqual(sum(c["cycles"] for c in code) + self.idx.unattributed, self.idx.cycles)
+        self.assertEqual(sum(c["instructions"] for c in code), self.idx.instructions)
+        total = self.idx.stats(0, self.idx.cycles)
+        per_region: dict[int, int] = {}
+        for c in code:
+            per_region[c["region"]] = per_region.get(c["region"], 0) + c["cycles"]
+        for rid, n in total.regions.items():
+            if rid != ti.NOBODY:
+                self.assertEqual(per_region.get(rid, 0), n, self.idx.region_label(rid))
+        lbu = [c for c in code if c["text"].startswith("lbu")]
+        self.assertTrue(lbu, "the disassembly is in the index")
+        self.assertTrue(all(c["insn"] & 0x7F == 0x03 for c in lbu), "lbu encodings carry the LOAD opcode")
+
     def test_one_sample_with_three_layers(self):
         samples = self.idx.samples()
         self.assertEqual(len(samples), 1)

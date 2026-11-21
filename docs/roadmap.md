@@ -102,6 +102,6 @@ Decisione: G3 con la CNN; il transformer sul core è la prima estensione dopo G3
 - [x] Controlli tra livelli: in ogni strato la somma delle operazioni è uguale alla durata dello strato, su entrambi i core; sulla pipeline il frame radice copre esattamente tutti i cicli
 - [x] Indice della traccia (`trace_index.py`): blocchi grezzi da 4096 cicli, piramide di contenitori, albero esecuzione → immagine → strato. 48 immagini sulla pipeline: 4,2 milioni di cicli, `index.json` 214 kB, costruito a flusso con 21 MB di RAM; domande esatte su qualunque intervallo in decine di ms
 - [x] Controlli: ogni intervallo confrontato col conto ciclo per ciclo (anche con le bolle), totali per operazione e per strato uguali a `op_report`
-- [ ] Flame graph su tutti i livelli e pannelli collegati, in un'interfaccia nostra
-- [ ] Confronto tra due esecuzioni
+- [x] Ispettore web (`web/`, statico): fasce esecuzione → immagine → strato → operazione, timeline, scheda della selezione con istruzioni e campi della codifica; direzione visiva "reference card" scelta in un giro di design
+- [x] Cambio di core e vista di confronto: per ogni operazione i cicli aggiunti dalla pipeline e la loro causa
 - [ ] Tracce precalcolate nel browser (sito statico)

@@ -32,6 +32,7 @@ sw/programs/  C programs for the core (dense_int8: one int8 dense layer with ReL
 scripts/      Dependency installer, test runners, Spike comparison, trace converter
 sim/nn/       Network simulator in Rust: tensors, autograd graph, training, int8 quantization
 compiler/     Compiler from a quantized network to an RV32IM program, with a region map
+web/          The inspector: a static page that reads the trace index
 docs/         Roadmap and decisions
 ```
 
@@ -49,6 +50,7 @@ make compiler-test        # compiled networks on the core, checked against the i
 make g2                   # the int8 CNN on the core: all 48 images, plus Spike and a trace
 make g2 CORE=pipe         # every target also runs on the pipeline; this one adds a Kanata trace
 make index CORE=pipe      # multi-resolution index of all 48 images (build/index-pipe)
+make web                  # put both indexes in web/data; then serve web/ over HTTP
 ```
 
 Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
@@ -236,3 +238,22 @@ cycle by cycle, and the totals of the 48-image index with `op_report`, layer by
 layer. One thing the index shows at once: images do not all cost the same.
 They range from 75,160 to 75,192 cycles on the single-cycle core, depending on
 how often requantization saturates and which value wins each pooling window.
+
+## Inspector
+
+`web/` is a static page (no build step) that reads the two trace indexes and
+shows where the cycles go: run → image → layer → operation as ruled bands, a
+timeline of retired and lost cycles, and a selection card with the measures
+and the instructions of the selection, each with its encoding split into its
+RV32 format's fields. A switch picks the single-cycle core or the pipeline, and
+the compare view lists what the pipeline adds, operation by operation, with
+the cause of every added cycle. For one image it scans the raw chunks of that
+image, so every figure stays exact.
+
+```bash
+make index && make index CORE=pipe && make web
+python3 -m http.server 8765 --directory web   # then open http://localhost:8765
+```
+
+The visual world is the RISC-V reference card: card stock, ruled tables,
+reversed green section bands (see `PRODUCT.md` for the product context).

@@ -13,6 +13,9 @@ nobody). The index stores the run three ways:
   per cause.
 * the call tree in index.json: run -> sample -> layer, with each node's own
   and total counts.
+* the code table in index.json: every instruction address that was charged a
+  cycle, with its encoding, disassembly, region, cycles (its own plus the bubbles blamed
+  on it), retirements and bubbles per cause.
 
 Any range of cycles is answered exactly: whole bins from the highest level
 that fits, raw slots at the edges. The builder streams the logs with constant
@@ -35,7 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from csmap import RegionMap  # noqa: E402
 from pipeline_to_kanata import BubbleTracer, Cycle, parse_line  # noqa: E402
-from trace_to_perfetto import OPC_JAL, OPC_JALR, LINK_REGS, Symbol, load_symbols  # noqa: E402
+from trace_to_perfetto import OPC_JAL, OPC_JALR, LINK_REGS, Symbol, load_disassembly, load_symbols  # noqa: E402
 
 CAUSES = ["fill", "load-use", "branch", "jump", "fence.i", "trap", "fetch stopped"]
 OUTSIDE = -1  # region id of an instruction outside the compiled network
@@ -176,7 +179,8 @@ def _commits(lines: Iterable[str]) -> Iterator[tuple[int, int]]:
 
 
 def build(commit_lines: Iterable[str], cycle_lines: Iterable[str | Cycle] | None, symbols: list[Symbol],
-          regions: RegionMap, out: Path, chunk_cycles: int = 4096, fanout: int = 16) -> dict:
+          regions: RegionMap, out: Path, chunk_cycles: int = 4096, fanout: int = 16,
+          disasm: dict[int, str] | None = None) -> dict:
     """Builds the index in `out` (replaced). Without `cycle_lines` every
     retired instruction is one cycle (the single-cycle core)."""
     out = Path(out)
@@ -197,9 +201,21 @@ def build(commit_lines: Iterable[str], cycle_lines: Iterable[str | Cycle] | None
     t = 0
     instructions = 0
     nobody = Stats()  # bubbles blamed on no instruction: charged to the root at the end
+    per_pc: dict[int, list] = {}  # pc -> [cycles, retirements, {cause: bubbles}]
+    encoding: dict[int, int] = {}  # pc -> instruction word, from the commit log
+    unattributed = 0
 
     def emit(pc: int, region: int, cause: str | None) -> None:
-        nonlocal chunk, t
+        nonlocal chunk, t, unattributed
+        if region == NOBODY:
+            unattributed += 1
+        else:
+            row = per_pc.setdefault(pc, [0, 0, {}])
+            row[0] += 1
+            if cause is None:
+                row[1] += 1
+            else:
+                row[2][cause] = row[2].get(cause, 0) + 1
         if t % chunk_cycles == 0:
             bins.append(Stats())
         bins[-1].add(region, cause)
@@ -212,6 +228,7 @@ def build(commit_lines: Iterable[str], cycle_lines: Iterable[str | Cycle] | None
     commits = _commits(commit_lines)
     if cycle_lines is None:
         for pc, insn in commits:
+            encoding[pc] = insn
             node = calls.retire(pc, insn, t)
             r = region_of(pc)
             node.own.add(r, None)
@@ -235,6 +252,7 @@ def build(commit_lines: Iterable[str], cycle_lines: Iterable[str | Cycle] | None
                     raise ValueError(f"cycle {c.n}: an instruction retires but the commit log has ended") from None
                 if pc != pc_of.get(wid):
                     raise ValueError(f"cycle {c.n}: commit log pc 0x{pc:08x} is not the retiring instruction")
+                encoding[pc] = insn
                 node = calls.retire(pc, insn, t)
                 r = region_of(pc)
                 node.own.add(r, None)
@@ -289,6 +307,11 @@ def build(commit_lines: Iterable[str], cycle_lines: Iterable[str | Cycle] | None
         "regions": [{"id": r.id, "function": r.function, "layer": r.layer, "op": r.op} for r in regions.regions],
         "levels": [{"width": lv["width"], "bins": [b.to_json() for b in lv["bins"]]} for lv in levels],
         "tree": calls.root.to_json(),
+        "unattributed": unattributed,
+        "code": [{"pc": pc, "insn": encoding.get(pc, 0), "text": (disasm or {}).get(pc, ""),
+                  "region": region_of(pc), "cycles": row[0],
+                  "instructions": row[1], "bubbles": dict(sorted(row[2].items()))}
+                 for pc, row in sorted(per_pc.items())],
     }
     (out / "index.json").write_text(json.dumps(index, separators=(",", ":")))
     return index
@@ -298,11 +321,12 @@ def build_from_files(elf: Path, commit_log: Path, pipeline_log: Path | None, out
                      chunk_cycles: int = 4096, fanout: int = 16) -> dict:
     symbols = load_symbols(elf)
     regions = RegionMap.load(elf)
+    disasm = load_disassembly(elf)
     with open(commit_log) as commits:
         if pipeline_log is None:
-            return build(commits, None, symbols, regions, out, chunk_cycles, fanout)
+            return build(commits, None, symbols, regions, out, chunk_cycles, fanout, disasm)
         with open(pipeline_log) as cycles:
-            return build(commits, cycles, symbols, regions, out, chunk_cycles, fanout)
+            return build(commits, cycles, symbols, regions, out, chunk_cycles, fanout, disasm)
 
 
 # ------------------------------------------------------------------- reading
@@ -318,6 +342,8 @@ class Index:
         self.regions = {r["id"]: r for r in d["regions"]}
         self.levels = [(lv["width"], [Stats.from_json(b) for b in lv["bins"]]) for lv in d["levels"]]
         self.tree: dict = d["tree"]
+        self.code: list[dict] = d["code"]
+        self.unattributed: int = d["unattributed"]
         self._chunks: dict[int, bytes] = {}
 
     def region_label(self, rid: int) -> str:

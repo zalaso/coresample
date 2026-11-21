@@ -1,0 +1,835 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-21T17:54:02+00:00",
+  "title": "Design System: Coresample inspector",
+  "extensions": {
+    "colorMeta": {
+      "green": {
+        "role": "primary",
+        "displayName": "Reference Card Green",
+        "canonical": "oklch(31.7% 0.057 164)",
+        "tonalRamp": [
+          "#010f08",
+          "#132b20",
+          "#2a4a3b",
+          "#446b59",
+          "#658d7a",
+          "#8cae9d",
+          "#b5d1c3",
+          "#def5e9"
+        ]
+      },
+      "green-dark": {
+        "role": "primary",
+        "displayName": "Reference Card Green (dark scheme)",
+        "canonical": "oklch(42.1% 0.075 161)",
+        "tonalRamp": [
+          "#001006",
+          "#0a2c1d",
+          "#214c38",
+          "#396e54",
+          "#5b9075",
+          "#84b199",
+          "#afd3bf",
+          "#daf7e7"
+        ]
+      },
+      "on-green": {
+        "role": "primary",
+        "displayName": "Reversed Type",
+        "canonical": "oklch(96.7% 0.012 133)",
+        "tonalRamp": [
+          "#0a0c09",
+          "#242622",
+          "#40433e",
+          "#5f635c",
+          "#80847d",
+          "#a3a6a0",
+          "#c7cac5",
+          "#edefeb"
+        ]
+      },
+      "on-green-dark": {
+        "role": "primary",
+        "displayName": "Reversed Type (dark scheme)",
+        "canonical": "oklch(96.2% 0.016 134)",
+        "tonalRamp": [
+          "#0a0c09",
+          "#232621",
+          "#3f443d",
+          "#5e635b",
+          "#7f847b",
+          "#a2a79f",
+          "#c6cbc4",
+          "#ecf0ea"
+        ]
+      },
+      "branch": {
+        "role": "secondary",
+        "displayName": "Flush Red",
+        "canonical": "oklch(51.7% 0.167 32)",
+        "tonalRamp": [
+          "#240000",
+          "#4c0200",
+          "#781b0a",
+          "#a7331f",
+          "#ce5842",
+          "#eb8470",
+          "#ffaf9d",
+          "#ffdbcc"
+        ]
+      },
+      "branch-dark": {
+        "role": "secondary",
+        "displayName": "Flush Red (dark scheme)",
+        "canonical": "oklch(65.6% 0.157 33)",
+        "tonalRamp": [
+          "#230000",
+          "#4a0700",
+          "#75200e",
+          "#a33923",
+          "#ca5c45",
+          "#e78772",
+          "#ffb29f",
+          "#ffddce"
+        ]
+      },
+      "loaduse": {
+        "role": "secondary",
+        "displayName": "Stall Amber",
+        "canonical": "oklch(65.2% 0.127 81)",
+        "tonalRamp": [
+          "#180600",
+          "#381f00",
+          "#5c3a00",
+          "#835800",
+          "#a67a1a",
+          "#c59e59",
+          "#e4c48d",
+          "#ffebc0"
+        ]
+      },
+      "loaduse-dark": {
+        "role": "secondary",
+        "displayName": "Stall Amber (dark scheme)",
+        "canonical": "oklch(79.0% 0.132 86)",
+        "tonalRamp": [
+          "#170700",
+          "#372000",
+          "#5a3c00",
+          "#805a00",
+          "#a37c08",
+          "#c2a054",
+          "#e1c689",
+          "#ffecbd"
+        ]
+      },
+      "jump": {
+        "role": "secondary",
+        "displayName": "Jump Violet",
+        "canonical": "oklch(48.1% 0.114 302)",
+        "tonalRamp": [
+          "#10041e",
+          "#2c1b42",
+          "#4b3569",
+          "#6c5193",
+          "#8e72b7",
+          "#af98d4",
+          "#d1bff1",
+          "#f5e6ff"
+        ]
+      },
+      "jump-dark": {
+        "role": "secondary",
+        "displayName": "Jump Violet (dark scheme)",
+        "canonical": "oklch(69.3% 0.112 302)",
+        "tonalRamp": [
+          "#10041e",
+          "#2c1b41",
+          "#4b3568",
+          "#6c5292",
+          "#8e73b6",
+          "#af98d3",
+          "#d1bff1",
+          "#f5e6ff"
+        ]
+      },
+      "branch-ink": {
+        "role": "secondary",
+        "displayName": "Flush Red Ink",
+        "canonical": "oklch(43.3% 0.145 32)",
+        "tonalRamp": [
+          "#210000",
+          "#480b03",
+          "#722416",
+          "#9f3d2b",
+          "#c5604c",
+          "#e38a77",
+          "#ffb3a3",
+          "#ffded1"
+        ]
+      },
+      "branch-ink-dark": {
+        "role": "secondary",
+        "displayName": "Flush Red Ink (dark scheme)",
+        "canonical": "oklch(73.8% 0.129 33)",
+        "tonalRamp": [
+          "#1f0000",
+          "#451107",
+          "#6e291b",
+          "#994331",
+          "#bf6552",
+          "#dd8d7c",
+          "#fab6a7",
+          "#ffe0d3"
+        ]
+      },
+      "loaduse-ink": {
+        "role": "secondary",
+        "displayName": "Stall Amber Ink",
+        "canonical": "oklch(44.6% 0.087 83)",
+        "tonalRamp": [
+          "#140900",
+          "#322200",
+          "#533e10",
+          "#775d25",
+          "#9a7e47",
+          "#baa274",
+          "#dbc7a1",
+          "#fcedcf"
+        ]
+      },
+      "loaduse-ink-dark": {
+        "role": "secondary",
+        "displayName": "Stall Amber Ink (dark scheme)",
+        "canonical": "oklch(83.4% 0.117 87)",
+        "tonalRamp": [
+          "#150800",
+          "#342100",
+          "#563e00",
+          "#7b5c00",
+          "#9e7e28",
+          "#bda25f",
+          "#dec791",
+          "#ffedc3"
+        ]
+      },
+      "jump-ink": {
+        "role": "secondary",
+        "displayName": "Jump Violet Ink",
+        "canonical": "oklch(41.0% 0.106 301)",
+        "tonalRamp": [
+          "#0f051d",
+          "#2b1c40",
+          "#4a3667",
+          "#6b5390",
+          "#8d74b4",
+          "#ae99d1",
+          "#d0bfef",
+          "#f4e7ff"
+        ]
+      },
+      "jump-ink-dark": {
+        "role": "secondary",
+        "displayName": "Jump Violet Ink (dark scheme)",
+        "canonical": "oklch(79.3% 0.095 300)",
+        "tonalRamp": [
+          "#0e061c",
+          "#2a1d3e",
+          "#483864",
+          "#69558c",
+          "#8a76b0",
+          "#ab9bcd",
+          "#cec1ec",
+          "#f3e8ff"
+        ]
+      },
+      "stock": {
+        "role": "neutral",
+        "displayName": "Card Stock",
+        "canonical": "oklch(92.2% 0.025 132)",
+        "tonalRamp": [
+          "#090c07",
+          "#22271f",
+          "#3e443a",
+          "#5c6457",
+          "#7d8577",
+          "#a0a89b",
+          "#c5cbc1",
+          "#ebf0e8"
+        ]
+      },
+      "stock-dark": {
+        "role": "neutral",
+        "displayName": "Card Stock (dark scheme)",
+        "canonical": "oklch(19.8% 0.017 160)",
+        "tonalRamp": [
+          "#080c0a",
+          "#212723",
+          "#3c4440",
+          "#5a645e",
+          "#7b857f",
+          "#9ea8a2",
+          "#c4cbc7",
+          "#eaf0ec"
+        ]
+      },
+      "stock-2": {
+        "role": "neutral",
+        "displayName": "Side Card",
+        "canonical": "oklch(88.7% 0.034 133)",
+        "tonalRamp": [
+          "#080d06",
+          "#21271d",
+          "#3c4537",
+          "#5a6553",
+          "#7b8773",
+          "#9fa998",
+          "#c4ccbe",
+          "#eaf1e6"
+        ]
+      },
+      "stock-2-dark": {
+        "role": "neutral",
+        "displayName": "Side Card (dark scheme)",
+        "canonical": "oklch(23.0% 0.022 159)",
+        "tonalRamp": [
+          "#080d09",
+          "#202723",
+          "#3b453f",
+          "#58655d",
+          "#79867e",
+          "#9da8a1",
+          "#c2ccc6",
+          "#e9f1ec"
+        ]
+      },
+      "cell": {
+        "role": "neutral",
+        "displayName": "Table Cell",
+        "canonical": "oklch(95.4% 0.016 130)",
+        "tonalRamp": [
+          "#0a0c08",
+          "#232621",
+          "#40433d",
+          "#5e635a",
+          "#7f847b",
+          "#a2a79f",
+          "#c7cac4",
+          "#edf0ea"
+        ]
+      },
+      "cell-dark": {
+        "role": "neutral",
+        "displayName": "Table Cell (dark scheme)",
+        "canonical": "oklch(25.3% 0.025 159)",
+        "tonalRamp": [
+          "#070d09",
+          "#1f2722",
+          "#3a453e",
+          "#57655d",
+          "#77877d",
+          "#9ba9a1",
+          "#c1ccc5",
+          "#e8f1eb"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Press Black",
+        "canonical": "oklch(21.0% 0.012 156)",
+        "tonalRamp": [
+          "#090c0a",
+          "#222623",
+          "#3e4440",
+          "#5c635f",
+          "#7d847f",
+          "#a1a7a3",
+          "#c5cbc7",
+          "#ebf0ed"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Press Black (dark scheme)",
+        "canonical": "oklch(91.8% 0.026 134)",
+        "tonalRamp": [
+          "#090c07",
+          "#22271f",
+          "#3e443a",
+          "#5c6457",
+          "#7d8677",
+          "#a0a89b",
+          "#c5ccc1",
+          "#ebf0e8"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Green-Grey Ink",
+        "canonical": "oklch(37.7% 0.032 158)",
+        "tonalRamp": [
+          "#060d09",
+          "#1d2821",
+          "#37463d",
+          "#53675b",
+          "#74887c",
+          "#98aa9f",
+          "#bfcdc4",
+          "#e6f2ea"
+        ]
+      },
+      "ink-2-dark": {
+        "role": "neutral",
+        "displayName": "Green-Grey Ink (dark scheme)",
+        "canonical": "oklch(77.8% 0.033 148)",
+        "tonalRamp": [
+          "#070d07",
+          "#1e281f",
+          "#39463a",
+          "#566657",
+          "#768878",
+          "#9baa9c",
+          "#c0cdc2",
+          "#e7f2e8"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Muted Rule",
+        "canonical": "oklch(66.0% 0.042 153)",
+        "tonalRamp": [
+          "#050e07",
+          "#1b291f",
+          "#35473a",
+          "#506857",
+          "#718a77",
+          "#96ab9b",
+          "#bdcfc1",
+          "#e5f3e8"
+        ]
+      },
+      "rule-dark": {
+        "role": "neutral",
+        "displayName": "Muted Rule (dark scheme)",
+        "canonical": "oklch(49.6% 0.045 157)",
+        "tonalRamp": [
+          "#040e08",
+          "#192920",
+          "#33483b",
+          "#4e6958",
+          "#6e8a79",
+          "#94ac9c",
+          "#bbcfc2",
+          "#e3f3e9"
+        ]
+      },
+      "rule-soft": {
+        "role": "neutral",
+        "displayName": "Faint Rule",
+        "canonical": "oklch(82.2% 0.037 139)",
+        "tonalRamp": [
+          "#070d06",
+          "#1f281d",
+          "#3a4637",
+          "#576653",
+          "#788874",
+          "#9caa98",
+          "#c2cdbe",
+          "#e9f2e6"
+        ]
+      },
+      "rule-soft-dark": {
+        "role": "neutral",
+        "displayName": "Faint Rule (dark scheme)",
+        "canonical": "oklch(35.7% 0.035 160)",
+        "tonalRamp": [
+          "#050d09",
+          "#1c2821",
+          "#36473d",
+          "#52675b",
+          "#72897c",
+          "#97ab9f",
+          "#becec4",
+          "#e5f2eb"
+        ]
+      },
+      "focus-rail": {
+        "role": "neutral",
+        "displayName": "Rail Focus Amber",
+        "canonical": "oklch(75.8% 0.134 85)",
+        "tonalRamp": [
+          "#170700",
+          "#372000",
+          "#5b3b00",
+          "#815900",
+          "#a47b00",
+          "#c3a052",
+          "#e3c588",
+          "#ffecbd"
+        ]
+      },
+      "fill": {
+        "role": "neutral",
+        "displayName": "Fill Bubble",
+        "canonical": "oklch(66.0% 0.042 153)",
+        "tonalRamp": [
+          "#050e07",
+          "#1b291f",
+          "#35473a",
+          "#506857",
+          "#718a77",
+          "#96ab9b",
+          "#bdcfc1",
+          "#e5f3e8"
+        ],
+        "aliasOf": "rule"
+      },
+      "retired": {
+        "role": "primary",
+        "displayName": "Retired Cycles",
+        "canonical": "oklch(31.7% 0.057 164)",
+        "tonalRamp": [
+          "#010f08",
+          "#132b20",
+          "#2a4a3b",
+          "#446b59",
+          "#658d7a",
+          "#8cae9d",
+          "#b5d1c3",
+          "#def5e9"
+        ],
+        "aliasOf": "green"
+      },
+      "sel": {
+        "role": "primary",
+        "displayName": "Selection Fill",
+        "canonical": "oklch(31.7% 0.057 164)",
+        "tonalRamp": [
+          "#010f08",
+          "#132b20",
+          "#2a4a3b",
+          "#446b59",
+          "#658d7a",
+          "#8cae9d",
+          "#b5d1c3",
+          "#def5e9"
+        ],
+        "aliasOf": "green"
+      },
+      "on-sel": {
+        "role": "primary",
+        "displayName": "Selection Text",
+        "canonical": "oklch(96.7% 0.012 133)",
+        "tonalRamp": [
+          "#0a0c09",
+          "#242622",
+          "#40433e",
+          "#5f635c",
+          "#80847d",
+          "#a3a6a0",
+          "#c7cac5",
+          "#edefeb"
+        ],
+        "aliasOf": "on-green"
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "Focus Ink",
+        "canonical": "oklch(21.0% 0.012 156)",
+        "tonalRamp": [
+          "#090c0a",
+          "#222623",
+          "#3e4440",
+          "#5c635f",
+          "#7d847f",
+          "#a1a7a3",
+          "#c5cbc7",
+          "#ebf0ed"
+        ],
+        "aliasOf": "ink"
+      },
+      "fill-dark": {
+        "role": "neutral",
+        "displayName": "Fill Bubble (dark scheme)",
+        "canonical": "oklch(60.4% 0.046 156)",
+        "tonalRamp": [
+          "#040e07",
+          "#19291f",
+          "#32483a",
+          "#4d6957",
+          "#6e8a78",
+          "#93ac9c",
+          "#bacfc1",
+          "#e3f3e8"
+        ]
+      },
+      "retired-dark": {
+        "role": "primary",
+        "displayName": "Retired Cycles (dark scheme)",
+        "canonical": "oklch(66.2% 0.097 159)",
+        "tonalRamp": [
+          "#001104",
+          "#002e1a",
+          "#144e33",
+          "#2b714e",
+          "#4f936f",
+          "#7bb494",
+          "#a8d6bb",
+          "#d5f9e3"
+        ]
+      },
+      "sel-dark": {
+        "role": "primary",
+        "displayName": "Selection Fill (dark scheme)",
+        "canonical": "oklch(89.4% 0.041 138)",
+        "tonalRamp": [
+          "#070d06",
+          "#1f281c",
+          "#3a4636",
+          "#576752",
+          "#778872",
+          "#9baa97",
+          "#c1cebd",
+          "#e8f2e5"
+        ]
+      },
+      "on-sel-dark": {
+        "role": "primary",
+        "displayName": "Selection Text (dark scheme)",
+        "canonical": "oklch(19.8% 0.017 160)",
+        "tonalRamp": [
+          "#080c0a",
+          "#212723",
+          "#3c4440",
+          "#5a645e",
+          "#7b857f",
+          "#9ea8a2",
+          "#c4cbc7",
+          "#eaf0ec"
+        ],
+        "aliasOf": "stock-dark"
+      },
+      "focus-dark": {
+        "role": "neutral",
+        "displayName": "Focus Amber (dark scheme)",
+        "canonical": "oklch(79.0% 0.132 86)",
+        "tonalRamp": [
+          "#170700",
+          "#372000",
+          "#5a3c00",
+          "#805a00",
+          "#a37c08",
+          "#c2a054",
+          "#e1c689",
+          "#ffecbd"
+        ],
+        "aliasOf": "loaduse-dark"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Band figure, fact values, selection card title; the only large size."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "Coresample in the rail; display size ranked by uppercase and tracking."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Icicle cell names, segment options, rail links, stepper controls."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose, readout, notes, table cells; tabular numerals throughout."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section band headings, legends, rail group labels, icicle level names; uppercase."
+      },
+      "label-dense": {
+        "displayName": "Label, dense",
+        "purpose": "Table heads and fact labels; uppercase."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Addresses, instruction text, encodings, axis, numeric columns only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "focus-on-selected",
+        "value": "inset 0 0 0 2px var(--on-sel)",
+        "purpose": "The only box-shadow: marks keyboard focus on an already selected icicle cell, alongside the outer focus ring. Not elevation."
+      }
+    ],
+    "focus": [
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--focus); outline-offset: 2px",
+        "purpose": "Keyboard focus everywhere outside the rail; ink in light, amber in dark. Table rows use offset -2px and switch to on-sel when selected."
+      },
+      {
+        "name": "focus-ring-rail",
+        "value": "outline: 2px solid #d7a93b; outline-offset: 2px",
+        "purpose": "Keyboard focus on the green rail, in both schemes."
+      }
+    ],
+    "motion": [],
+    "motionNote": "No transitions or animations. State changes are immediate; the timeline cursor redraws on pointer and arrow-key movement.",
+    "breakpoints": [
+      {
+        "name": "stack-card",
+        "value": "1180px",
+        "purpose": "max-width: rail 220px, selection card drops under the main column."
+      },
+      {
+        "name": "phone",
+        "value": "760px",
+        "purpose": "max-width: single column, rail unstuck, nav and note hidden, 16px gutter, facts 2x2, timeline 180px, image stepper shown."
+      }
+    ],
+    "colorScheme": "Dark values (-dark tokens) apply under prefers-color-scheme: dark; there is no manual theme toggle."
+  },
+  "components": [
+    {
+      "name": "Segmented Switch",
+      "kind": "chip",
+      "refersTo": "seg-option",
+      "description": "Two-option ruled switch in the rail; the checked option reverses to on-green.",
+      "html": "<div class=\"ds-rail\"><fieldset class=\"ds-seg\"><legend>Core</legend><label><input type=\"radio\" name=\"ds-core\"><span>Single-cycle</span></label><label><input type=\"radio\" name=\"ds-core\" checked><span>Pipeline</span></label></fieldset></div>",
+      "css": ".ds-rail { background: var(--green, #0f3b2a); color: var(--on-green, #f1f6ee); padding: 22px 18px; width: 236px; } .ds-seg { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; } .ds-seg legend { grid-column: 1 / -1; font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .14em; text-transform: uppercase; opacity: .8; margin-bottom: 6px; padding: 0; } .ds-seg label { position: relative; cursor: pointer; } .ds-seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; } .ds-seg span { display: block; padding: 7px 4px; text-align: center; border: 1px solid color-mix(in srgb, var(--on-green, #f1f6ee) 45%, transparent); font: 600 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .03em; } .ds-seg label + label span { border-left: 0; } .ds-seg input:checked + span { background: var(--on-green, #f1f6ee); color: var(--green, #0f3b2a); } .ds-seg input:focus-visible + span { outline: 2px solid #d7a93b; outline-offset: 2px; }"
+    },
+    {
+      "name": "Rail Navigation",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Ruled link list under a tracked caps group label on the green rail.",
+      "html": "<nav class=\"ds-railnav\"><span>On this page</span><a href=\"#\">Where the cycles go</a><a href=\"#\">Timeline</a><a href=\"#\">Selection</a></nav>",
+      "css": ".ds-railnav { background: var(--green, #0f3b2a); color: var(--on-green, #f1f6ee); padding: 22px 18px; width: 236px; display: flex; flex-direction: column; } .ds-railnav span { font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .14em; text-transform: uppercase; opacity: .8; margin-bottom: 4px; } .ds-railnav a { color: inherit; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--on-green, #f1f6ee) 25%, transparent); font: 600 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .03em; text-decoration: none; text-underline-offset: 3px; } .ds-railnav a:hover { text-decoration: underline; } .ds-railnav a:focus-visible { outline: 2px solid #d7a93b; outline-offset: 2px; }"
+    },
+    {
+      "name": "Run Band",
+      "kind": "custom",
+      "refersTo": "band",
+      "description": "Reversed green page heading: scope in narrow caps, then the figure with its unit.",
+      "html": "<h1 class=\"ds-band\"><span class=\"ds-band-scope\">Pipeline core · all 48 images</span><span class=\"ds-band-line\"><b>4,213,580</b><span class=\"ds-band-unit\">cycles, every one accounted for</span></span></h1>",
+      "css": ".ds-band { margin: 0; background: var(--green, #0f3b2a); color: var(--on-green, #f1f6ee); padding: 12px 24px; font: 800 24px/1.2 Archivo, system-ui, sans-serif; font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; } .ds-band-scope { flex-basis: 100%; font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .12em; text-transform: uppercase; opacity: .9; } .ds-band-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; } .ds-band b { font-weight: 800; white-space: nowrap; } .ds-band-unit { font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .12em; text-transform: uppercase; opacity: .9; }"
+    },
+    {
+      "name": "Facts Row",
+      "kind": "card",
+      "refersTo": "fact",
+      "description": "Ruled fact cells: display-weight figure above a dense caps label.",
+      "html": "<dl class=\"ds-facts\"><div><dt>Instructions retired</dt><dd>3,601,212</dd></div><div><dt>Cycles per instruction</dt><dd>1.170</dd></div><div><dt>Lost to taken branches</dt><dd>401,330</dd></div><div><dt>Lost to load-use stalls</dt><dd>196,884</dd></div></dl>",
+      "css": ".ds-facts { margin: 0; background: var(--stock, #dfe9d8); color: var(--ink, #141a16); display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 2px solid var(--green, #0f3b2a); font-variant-numeric: tabular-nums; } .ds-facts div { padding: 12px 24px; border-right: 1px solid var(--rule, #7f9a86); display: flex; flex-direction: column-reverse; justify-content: flex-end; } .ds-facts div:last-child { border-right: 0; } .ds-facts dd { margin: 0; font: 800 24px/1.2 Archivo, system-ui, sans-serif; } .ds-facts dt { font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2, #33473b); }"
+    },
+    {
+      "name": "Icicle Row",
+      "kind": "custom",
+      "refersTo": "icicle-cell",
+      "description": "Ruled row of cycle-proportional cells with stall stripes; selected cell reversed.",
+      "html": "<div class=\"ds-lvl\"><span>Operation</span><div class=\"ds-cells\"><button class=\"ds-cell ds-on\" style=\"flex:52 1 0\">mac<em>1,920,114 · 45.6%</em><span class=\"ds-stall\" style=\"left:0;width:9%;background:var(--branch, #b4351f)\"></span><span class=\"ds-stall\" style=\"left:9%;width:6%;background:var(--loaduse, #b7861c)\"></span></button><button class=\"ds-cell\" style=\"flex:28 1 0\">requant<em>1,180,402 · 28.0%</em><span class=\"ds-stall\" style=\"left:0;width:4%;background:var(--branch, #b4351f)\"></span></button><button class=\"ds-cell\" style=\"flex:16 1 0\">max<em>674,173 · 16.0%</em></button><button class=\"ds-cell ds-thin\" style=\"flex:3 1 0\" aria-label=\"store\"></button></div></div>",
+      "css": ".ds-lvl { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: stretch; background: var(--stock, #dfe9d8); padding: 12px; } .ds-lvl > span { font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .14em; text-transform: uppercase; align-self: center; color: var(--ink, #141a16); } .ds-cells { display: flex; border: 1px solid var(--green, #0f3b2a); min-height: 46px; background: var(--cell, #ecf2e7); } .ds-cell { all: unset; box-sizing: border-box; position: relative; min-width: 0; overflow: hidden; cursor: pointer; border-right: 1px solid var(--green, #0f3b2a); padding: 5px 8px 9px; white-space: nowrap; color: var(--ink, #141a16); font: 600 13px/1.3 \"Archivo Narrow\", \"Arial Narrow\", sans-serif; } .ds-cell:last-child { border-right: 0; } .ds-cell em { display: block; font: 400 13px \"JetBrains Mono\", ui-monospace, monospace; font-style: normal; color: var(--ink-2, #33473b); overflow: hidden; } .ds-cell:hover { background: color-mix(in srgb, var(--green, #0f3b2a) 12%, var(--cell, #ecf2e7)); } .ds-cell.ds-on { background: var(--sel, #0f3b2a); color: var(--on-sel, #f1f6ee); } .ds-cell.ds-on em { color: var(--on-sel, #f1f6ee); } .ds-cell:focus-visible { outline: 2px solid var(--focus, #141a16); outline-offset: 2px; z-index: 1; } .ds-cell.ds-on:focus-visible { box-shadow: inset 0 0 0 2px var(--on-sel, #f1f6ee); } .ds-cell.ds-thin { padding: 0; min-width: 2px; } .ds-stall { position: absolute; bottom: 0; height: 5px; }"
+    },
+    {
+      "name": "Section Band",
+      "kind": "custom",
+      "refersTo": "section-band",
+      "description": "Reversed green heading band with an optional right-hand legend.",
+      "html": "<h2 class=\"ds-sect\"><span>Timeline</span><span class=\"ds-legend\"><span><span class=\"ds-key\" style=\"background:var(--retired, #0f3b2a)\"></span>Retired</span><span><span class=\"ds-key\" style=\"background:var(--branch, #b4351f)\"></span>Taken branches</span><span><span class=\"ds-key\" style=\"background:var(--loaduse, #b7861c)\"></span>Load-use stalls</span><span><span class=\"ds-key\" style=\"background:var(--jump, #6a4c93)\"></span>Jumps</span></span></h2>",
+      "css": ".ds-sect { margin: 0; background: var(--green, #0f3b2a); color: var(--on-green, #f1f6ee); padding: 5px 10px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .14em; text-transform: uppercase; } .ds-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; letter-spacing: .06em; } .ds-key { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; outline: 1px solid color-mix(in srgb, var(--on-green, #f1f6ee) 50%, transparent); }"
+    },
+    {
+      "name": "Instruction Table",
+      "kind": "custom",
+      "refersTo": "table-head",
+      "description": "Ruled table with mono addresses and counts, cause marks as swatch plus -ink abbreviation, and an opened encoding grid.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>pc</th><th>Instruction</th><th class=\"ds-n\">Cycles</th></tr></thead><tbody><tr><td class=\"ds-pc\">1a4</td><td><span class=\"ds-insn\">lw a5,0(a4)</span><span class=\"ds-marks\"><span style=\"color:var(--loaduse-ink, #6b4f0b)\"><span class=\"ds-key\" style=\"background:var(--loaduse, #b7861c)\"></span>lu 12,288</span></span></td><td class=\"ds-n\">36,864</td></tr><tr><td colspan=\"3\"><div class=\"ds-enc\" style=\"grid-template-columns:12fr 5fr 3fr 5fr 7fr\"><div>000000000000<small>imm[11:0]</small></div><div>01110<small>rs1</small></div><div>010<small>funct3</small></div><div>01111<small>rd</small></div><div>0000011<small>opcode</small></div></div></td></tr><tr class=\"ds-sel\"><td class=\"ds-pc\">1b0</td><td><span class=\"ds-insn\">bne a4,a3,1a4</span><span class=\"ds-marks\"><span><span class=\"ds-key\" style=\"background:var(--branch, #b4351f)\"></span>br 24,576</span></span></td><td class=\"ds-n\">36,864</td></tr><tr class=\"ds-total\"><td colspan=\"2\">Total</td><td class=\"ds-n\">73,728</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; background: var(--stock-2, #d1dfc8); color: var(--ink, #141a16); font: 400 13px/1.45 Archivo, system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-table th, .ds-table td { border-top: 1px solid var(--rule, #7f9a86); padding: 5px 6px; text-align: left; vertical-align: baseline; } .ds-table th { font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; letter-spacing: .1em; text-transform: uppercase; border-top: 2px solid var(--green, #0f3b2a); color: var(--ink-2, #33473b); } .ds-table .ds-n { font-family: \"JetBrains Mono\", ui-monospace, monospace; text-align: right; white-space: nowrap; } .ds-pc { font-family: \"JetBrains Mono\", ui-monospace, monospace; color: var(--ink-2, #33473b); } .ds-insn { font-family: \"JetBrains Mono\", ui-monospace, monospace; } .ds-marks { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; margin-left: 6px; font: 700 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; } .ds-key { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; } .ds-table tr.ds-sel td { background: var(--sel, #0f3b2a); color: var(--on-sel, #f1f6ee); } .ds-table tr.ds-total td { border-top: 2px solid var(--green, #0f3b2a); font-weight: 600; } .ds-table tbody tr:hover td { background: color-mix(in srgb, var(--green, #0f3b2a) 10%, transparent); } .ds-enc { display: grid; border: 1px solid var(--green, #0f3b2a); margin: 4px 0 6px; font: 400 13px \"JetBrains Mono\", ui-monospace, monospace; } .ds-enc div { border-right: 1px solid var(--rule, #7f9a86); padding: 3px 4px; text-align: center; min-width: 0; overflow: hidden; } .ds-enc div:last-child { border-right: 0; } .ds-enc small { display: block; font: 600 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; color: var(--ink-2, #33473b); }"
+    },
+    {
+      "name": "Image Stepper",
+      "kind": "input",
+      "refersTo": "stepper-control",
+      "description": "Prev, image select, Next; shown only at 760px and below.",
+      "html": "<div class=\"ds-stepper\"><button>Prev</button><select aria-label=\"Image\"><option>Image 7 · 75,840 cycles</option></select><button>Next</button></div>",
+      "css": ".ds-stepper { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; background: var(--stock, #dfe9d8); padding: 12px; } .ds-stepper button, .ds-stepper select { font: 600 13px \"Archivo Narrow\", \"Arial Narrow\", sans-serif; color: var(--ink, #141a16); background: var(--cell, #ecf2e7); border: 1px solid var(--green, #0f3b2a); border-radius: 0; padding: 8px 12px; min-height: 40px; } .ds-stepper button { cursor: pointer; } .ds-stepper button:hover { background: color-mix(in srgb, var(--green, #0f3b2a) 12%, var(--cell, #ecf2e7)); } .ds-stepper button:focus-visible, .ds-stepper select:focus-visible { outline: 2px solid var(--focus, #141a16); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Reference Card",
+    "overview": "The inspector is the RISC-V green reference card made into a working screen. A run's cycle accounting is set the way the card sets an instruction set: pale green card stock, a dark green shell, reversed green bands for headings, black ink, and ruled tables in a muted green. Hierarchy comes from what a printed card has to hand: weight, case, reversal and rule. There are two type sizes and no third.\n\nThe density is a reference sheet's. Every surface is a table, a ruled row of proportional cells, or a figure with its label, and every figure is an exact count in tabular numerals. Colour beyond the greens is reserved for one meaning: why a cycle was lost. Red marks a taken-branch flush, amber a load-use stall, violet a jump. Nothing else on the page is red, amber or violet.\n\nThe build is flat, square-cornered and still. It has no shadows, no radius and no motion. Selection is shown by reversal into the shell green, and keyboard focus by a separate ring that is never the selection colour. The direction contract rejects two looks outright: a profiler's dark flame graph and a dashboard of hero numbers.",
+    "keyCharacteristics": [
+      "Pale green stock ground, dark green rail and reversed section bands, black ink, muted green rules.",
+      "Two type sizes (13px and 24px); rank set by weight, case, reversal and rule.",
+      "Archivo and Archivo Narrow for words, JetBrains Mono for addresses, encodings and counts.",
+      "Cause colours (red, amber, violet) only for lost cycles, each with a darker text partner.",
+      "Selection reverses into green; focus is a separate ring drawn outside the element.",
+      "Flat and square: no shadows, no radius, no transitions.",
+      "A dark scheme that follows `prefers-color-scheme`, keeping every role."
+    ],
+    "rules": [
+      {
+        "name": "The One Green Rule",
+        "body": "Structure has one colour. Shell, bands, heavy rules, cell borders and selection all use the same green; never introduce a second structural hue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cause Colour Rule",
+        "body": "Red, amber and violet mean lost cycles and nothing else. They appear as stripes, segments, swatches and cause marks; as text they always switch to their -ink partner. Never use them for emphasis, status or decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Focus Is Not Selection Rule",
+        "body": "The focus ring is never the selection colour: ink in light, amber in dark and in the rail. It is drawn outside the element (2px, offset 2px) so it stays visible against a reversed selected cell; a focused selected cell also gets an inset 2px ring in on-sel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Sizes Rule",
+        "body": "Only 13px and 24px exist. Rank comes from weight (400, 600, 700, 800), case, reversal into green and rule weight, never from a third size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Whole Count Rule",
+        "body": "A count is never truncated. When a cell's count line does not fit, the line is hidden whole; the full figure stays in the cell's tooltip and in the selection card.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono For Figures Rule",
+        "body": "JetBrains Mono is for addresses, encodings and counts only, right-aligned and unwrapped in numeric columns. Words are never set in mono.",
+        "section": "typography"
+      },
+      {
+        "name": "The Proportional Cell Rule",
+        "body": "A cell's width is its share of cycles, always. A cell too narrow for text keeps its width and loses its text, never the reverse.",
+        "section": "layout"
+      },
+      {
+        "name": "The Printed Card Rule",
+        "body": "If a printed reference card could not do it, the screen does not: hierarchy is reversal, rule weight and tone, never shadow or lift.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do rank with weight, case, reversal and rule at 13px and 24px only.",
+      "Do put every section heading in a reversed green band (5px 10px, label type).",
+      "Do reverse selection into green (sel and on-sel) and keep focus a separate ring: ink in light, amber in dark and in the rail, drawn outside the element.",
+      "Do mark lost cycles with a swatch plus an abbreviation (br, lu, jp) in the cause's -ink text colour.",
+      "Do set counts, addresses and encodings in JetBrains Mono, right-aligned, with tabular numerals.",
+      "Do hide a count line that does not fit and keep the full figure in the tooltip and the card.",
+      "Do size proportional cells by cycles, and drop text, not width, when a cell gets thin.",
+      "Do keep the band to two lines: scope in narrow caps, then figure plus unit."
+    ],
+    "donts": [
+      "Don't look like a profiler's dark flame graph or a dashboard of hero numbers.",
+      "Don't add a third type size.",
+      "Don't use red, amber or violet for anything but lost cycles, or set cause text in the swatch colour.",
+      "Don't make the focus ring the selection colour.",
+      "Don't truncate or ellipsize a count.",
+      "Don't round corners, add shadows or animate state changes.",
+      "Don't set words in mono."
+    ]
+  }
+}
