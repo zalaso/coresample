@@ -129,6 +129,10 @@ nn-ref:
 G2 := $(BUILD)/g2$(SUFFIX)
 # On the pipeline, also the per-cycle stage log, its Kanata trace for Konata,
 # and where the cycles went.
+# Perfetto uses the pipeline's real cycles; the report charges every cycle to a
+# layer and operation.
+G2_TIMING := $(if $(filter pipe,$(CORE)),--pipeline $(G2)/cnn1.pipeline.log)
+G2_REPORT := $(if $(filter pipe,$(CORE)),--pipeline $(G2)/cnn1.pipeline.log,--log $(G2)/cnn1.core.log)
 ifeq ($(CORE),pipe)
 define G2_PIPELINE
 $(SIM) --pipeline $(G2)/cnn1.pipeline.log $(G2)/cnn1.elf
@@ -151,8 +155,10 @@ g2: sim
 	$(CS_COMPILE) --ref $(CNN_REF) --samples 1 -o $(G2)/cnn1.S
 	$(RISCV_PREFIX)gcc $(PROG_CFLAGS) sw/runtime/crt0.S $(G2)/cnn1.S -o $(G2)/cnn1.elf
 	$(PYTHON) scripts/run_tests.py --sim $(SIM) --spike $(SPIKE) --trace-dir $(G2) $(G2)/cnn1.elf
-	$(PYTHON) scripts/trace_to_perfetto.py --elf $(G2)/cnn1.elf --log $(G2)/cnn1.core.log -o $(G2)/cnn1.perfetto.json
 	$(G2_PIPELINE)
+	$(PYTHON) scripts/trace_to_perfetto.py --elf $(G2)/cnn1.elf --log $(G2)/cnn1.core.log $(G2_TIMING) \
+	  -o $(G2)/cnn1.perfetto.json
+	$(PYTHON) scripts/op_report.py --elf $(G2)/cnn1.elf $(G2_REPORT)
 
 compiler-test: sim
 	CS_SIM=$(abspath $(SIM)) $(CARGO) test -p coresample-compiler

@@ -138,6 +138,96 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(ins["args"]["mem"], "store 0x80001000 = 0x7")
 
 
+from csmap import Region, RegionMap  # noqa: E402
+
+# main: 0x80000000-0x8000000c is "loop", 0x8000000c-0x80000010 is "check";
+# leaf: 0x80000100-0x80000108 is "mac".
+REGIONS = RegionMap([
+    Region(0x8000_0000, 0x8000_000C, 0, "main", None, "loop"),
+    Region(0x8000_000C, 0x8000_0010, 1, "main", None, "check"),
+    Region(0x8000_0100, 0x8000_0108, 2, "leaf", 0, "mac"),
+])
+
+CALL_AND_BACK = [
+    (0x8000_0000, ADDI, ""),
+    (0x8000_0004, JAL_RA_8, " x1  0x80000008"),  # call leaf
+    (0x8000_0100, ADDI, ""),
+    (0x8000_0104, RET, ""),
+    (0x8000_0008, ADDI, ""),                      # back in main.loop
+    (0x8000_000C, ADDI, ""),                      # main.check
+]
+
+
+def ops(events):
+    return [(e["name"], e["args"]["first_cycle"], e["args"]["cycles"]) for e in slices(events, "operation")]
+
+
+class Operations(unittest.TestCase):
+    def test_operation_slices_between_functions_and_instructions(self):
+        events = t2p.build_events(log(*CALL_AND_BACK), SYMBOLS, {}, regions=REGIONS)
+        # A call ends the caller's run: main.loop appears twice, around the call.
+        self.assertEqual(ops(events), [("loop", 0, 2), ("mac", 2, 2), ("loop", 4, 1), ("check", 5, 1)])
+        mac = [e for e in slices(events, "operation") if e["name"] == "mac"][0]
+        self.assertEqual(mac["args"]["layer"], 0)
+        self.assertEqual(mac["args"]["function"], "leaf")
+
+    def test_no_regions_no_operation_slices(self):
+        self.assertEqual(ops(t2p.build_events(log(*CALL_AND_BACK), SYMBOLS, {})), [])
+
+    def test_instructions_outside_regions_get_no_operation(self):
+        commits = log((0x9000_0000, ADDI, ""), (0x8000_0000, ADDI, ""))
+        self.assertEqual(ops(t2p.build_events(commits, SYMBOLS, {}, regions=REGIONS)), [("loop", 1, 1)])
+
+
+class PipelineTiming(unittest.TestCase):
+    def test_instructions_span_from_the_previous_retirement(self):
+        # Retired at cycles 4, 5 and 7: the fill goes to the first instruction,
+        # the bubble at cycle 6 to the third.
+        commits = log((0x8000_0000, ADDI, ""), (0x8000_0004, ADDI, ""), (0x8000_0008, ADDI, ""))
+        events = t2p.build_events(commits, SYMBOLS, {}, retire_cycles=[4, 5, 7])
+        spans = [(e["args"]["cycle"], e["args"]["cycles"]) for e in slices(events, "instruction")]
+        self.assertEqual(spans, [(0, 5), (5, 1), (6, 2)])
+        main = slices(events, "function")[0]
+        self.assertEqual((main["args"]["first_cycle"], main["args"]["cycles"]), (0, 8))
+        self.assertEqual(main["ts"], t2p.cycle_start_us(0))
+
+    def test_retire_cycles_must_match_the_commit_log(self):
+        with self.assertRaises(ValueError):
+            t2p.build_events(log((0x8000_0000, ADDI, "")), SYMBOLS, {}, retire_cycles=[4, 5])
+
+
+G2_DIRS = {"single": ROOT / "build" / "g2", "pipe": ROOT / "build" / "g2-pipe"}
+
+
+class G2Operations(unittest.TestCase):
+    """On the compiled CNN, each layer's operations add up to the layer."""
+
+    def check(self, core: str):
+        d = G2_DIRS[core]
+        if not (d / "cnn1.perfetto.json").exists():
+            self.skipTest(f"run `make g2{' CORE=pipe' if core == 'pipe' else ''}` first")
+        events = json.loads((d / "cnn1.perfetto.json").read_text())["traceEvents"]
+        frames = slices(events, "function")
+        operations = slices(events, "operation")
+        self.assertTrue(any(o["name"] == "mac" for o in operations), "no mac operation in the trace")
+        for f in frames:
+            if not f["name"].startswith("layer"):
+                continue
+            start, end = f["args"]["first_cycle"], f["args"]["first_cycle"] + f["args"]["cycles"]
+            inside = [o for o in operations if start <= o["args"]["first_cycle"] < end]
+            self.assertEqual(sum(o["args"]["cycles"] for o in inside), f["args"]["cycles"], f["name"])
+        if core == "pipe":
+            total = len((d / "cnn1.pipeline.log").read_text().splitlines())
+            root = min(frames, key=lambda f: f["ts"])
+            self.assertEqual(root["args"]["cycles"], total, "the root frame spans every cycle")
+
+    def test_single_cycle(self):
+        self.check("single")
+
+    def test_pipeline(self):
+        self.check("pipe")
+
+
 PROGRAM = ROOT / "build" / "programs" / "dense_int8"
 
 

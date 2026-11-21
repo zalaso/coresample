@@ -1,10 +1,14 @@
 # Coresample
 
-A core sample of a neural network: follow one token from the model, through the
+A core sample of a neural network: follow one input from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 2 complete. G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference, on the single-cycle core and on the 5-stage pipeline, whose every lost cycle is traced to its cause. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
+Today the network on the core is a small int8 CNN that classifies images. The
+transformer already trains in the simulator; following one of its tokens down
+to the pipeline is the next extension, after the first complete version (G3).
+
+> Status: phase 3 under way: every view now has the operation level between layers and instructions. Phase 2 complete, G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference, on the single-cycle core and on the 5-stage pipeline, whose every lost cycle is traced to its cause. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -191,3 +195,23 @@ The existing FENCE.I tests did not notice a pipeline whose FENCE.I does
 nothing, because they always jump to the new code and the jump refetches.
 `sw/tests/fence_i_next.S` patches the very next instruction, which only
 FENCE.I can make visible, and catches it.
+
+## Operations: the level between layers and instructions
+
+Every view now reads the compiler's `.cs_map`, so each instruction knows its
+layer and operation. In Perfetto, operation slices sit between the layer
+functions and the instructions; with the pipeline's real cycles (`make g2
+CORE=pipe`), an instruction's slice lasts until it retires, so a stall makes
+the waiting instruction longer. `scripts/op_report.py` charges every cycle to
+exactly one layer and operation, and the rows add up to the total. One CNN
+image on the pipeline:
+
+| operation | share of cycles | CPI | lost to branches | lost to load-use |
+| --- | ---: | ---: | ---: | ---: |
+| `layer0_conv2d.mac` | 79.7% | 1.14 | 4,832 | 3,872 |
+| `layer1_max_pool2d.max` | 7.1% | 1.17 | 674 | 256 |
+| `layer0_conv2d.requant` | 4.6% | 1.28 | 886 | 0 |
+| `layer3_linear.mac` | 3.1% | 1.39 | 378 | 384 |
+
+The convolution's multiply-accumulate loop is four fifths of the run: that is
+where compiler optimizations will pay.

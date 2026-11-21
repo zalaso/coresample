@@ -92,3 +92,15 @@ Ordine: prima quantizzazione e compilatore (il percorso verso G2), poi la pipeli
 - [x] Controllo che i test sappiano fallire: forwarding da MEM, forwarding da WB, bypass dal WB, stallo load-use, flush dello stadio ID, FENCE.I. Il bug di FENCE.I sfuggiva a riscv-tests e arch-test: aggiunto `sw/tests/fence_i_next.S`, che lo trova
 
 **Fase 2 completa.** Il livello "operazione" è nell'ELF (`.cs_map`) ma non ancora nelle viste: è il primo lavoro della fase 3.
+
+## Stato della fase 3
+
+Decisione: G3 con la CNN; il transformer sul core è la prima estensione dopo G3. Il README ora dice "un input" invece di "un token".
+
+- [x] Livello "operazione" nelle viste: lettore di `.cs_map` (`csmap.py`), tratti di operazione in Perfetto tra strato e istruzione, tempi reali della pipeline (uno stallo allunga l'istruzione che aspetta)
+- [x] Report per strato e operazione (`op_report.py`): ogni ciclo addebitato a una sola riga (load-use all'istruzione che aspetta, svuotamenti al salto), le righe sommano al totale. Il `mac` della convoluzione è l'80% dei cicli
+- [x] Controlli tra livelli: in ogni strato la somma delle operazioni è uguale alla durata dello strato, su entrambi i core; sulla pipeline il frame radice copre esattamente tutti i cicli
+- [ ] Indice della traccia a più risoluzioni
+- [ ] Flame graph su tutti i livelli e pannelli collegati, in un'interfaccia nostra
+- [ ] Confronto tra due esecuzioni
+- [ ] Tracce precalcolate nel browser (sito statico)

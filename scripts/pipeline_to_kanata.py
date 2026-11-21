@@ -75,31 +75,35 @@ class Accounting:
     retired: int = 0
     discarded: int = 0
     bubbles: dict[str, int] = field(default_factory=dict)
+    # One entry per empty write-back slot: (cause, the instruction to blame).
+    # Load-use blames the instruction that waited, a flush the branch or jump
+    # that caused it; fill and stopped fetch blame nobody (None).
+    blame: list[tuple[str, int | None]] = field(default_factory=list)
 
 
 def account(cycles: list[Cycle]) -> Accounting:
     """Explains every empty write-back slot by tracing the bubble back to the
     cycle that made it. Raises ValueError if a bubble has no cause."""
 
-    def why(stage: str, t: int) -> str:
+    def why(stage: str, t: int) -> tuple[str, int | None]:
         c = cycles[t]
         if c.stages[stage] is not None:
             raise ValueError(f"cycle {t}: {stage} is not empty")
         if t == 0:
-            return "fill"
+            return "fill", None
         prev = cycles[t - 1]
         if stage == "D":
             if prev.flush:  # the instruction in IF was discarded
-                return prev.flush
+                return prev.flush, prev.stages["X"]
             if prev.stages["F"] is None:
-                return "fill" if prev.n < 1 else "fetch stopped"
+                return ("fill" if prev.n < 1 else "fetch stopped"), None
         elif stage == "X":
             if prev.stages["D"] is None:
                 return why("D", t - 1)
             if prev.stall:
-                return "load-use"
+                return "load-use", prev.stages["D"]
             if prev.flush:  # the instruction in ID was discarded
-                return prev.flush
+                return prev.flush, prev.stages["X"]
         else:  # M and W just pass on what the previous stage had
             before = STAGES[STAGES.index(stage) - 1]
             if prev.stages[before] is None:
@@ -110,7 +114,9 @@ def account(cycles: list[Cycle]) -> Accounting:
     counts: collections.Counter[str] = collections.Counter()
     for t, c in enumerate(cycles):
         if c.stages["W"] is None:
-            counts[why("W", t)] += 1
+            cause, culprit = why("W", t)
+            counts[cause] += 1
+            acc.blame.append((cause, culprit))
         else:
             acc.retired += 1
     acc.bubbles = dict(counts)
@@ -121,8 +127,12 @@ def account(cycles: list[Cycle]) -> Accounting:
     return acc
 
 
+def pcs_by_id(cycles: list[Cycle]) -> dict[int, int]:
+    return {c.fetch: c.fetch_pc for c in cycles if c.fetch is not None}
+
+
 def retired_pcs(cycles: list[Cycle]) -> list[int]:
-    pc_of = {c.fetch: c.fetch_pc for c in cycles if c.fetch is not None}
+    pc_of = pcs_by_id(cycles)
     return [pc_of[c.stages["W"]] for c in cycles if c.stages["W"] is not None]
 
 
