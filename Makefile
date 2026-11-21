@@ -10,6 +10,9 @@
 #   make unit     unit tests of the Python tools
 #   make nn-test  tests of the network simulator (Rust) against PyTorch references
 #   make nn-ref   regenerate those references (needs PyTorch in .venv)
+#   make g2       compile the int8 CNN, run it on the core and on Spike (all 48
+#                 images), and write the Perfetto trace of one image
+#   make compiler-test  end-to-end tests of the compiler on the core
 
 RISCV_PREFIX ?= riscv64-unknown-elf-
 VERILATOR    ?= verilator
@@ -33,7 +36,7 @@ TEST_CFLAGS := -march=rv32im_zicsr_zifencei -mabi=ilp32 -static -mcmodel=medany 
                -fvisibility=hidden -nostdlib -nostartfiles \
                -Isw/env -I$(ISA_DIR)/macros/scalar -Tsw/env/link.ld
 
-.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref check-tests clean
+.PHONY: all sim tests test compare arch-test trace unit nn-test nn-ref g2 compiler-test check-tests clean
 all: sim
 
 sim: $(SIM)
@@ -98,10 +101,31 @@ CARGO ?= cargo
 VENV_PYTHON ?= .venv/bin/python
 
 nn-test:
-	cd sim/nn && $(CARGO) test
+	$(CARGO) test -p coresample-nn
 
 nn-ref:
 	$(VENV_PYTHON) sim/nn/reference/gen_reference.py
+
+G2 := $(BUILD)/g2
+CNN_REF := sim/nn/tests/data/quant_cnn.ref
+CS_COMPILE := $(CARGO) run -q --release -p coresample-compiler --bin cs-compile --
+
+# G2: the CNN on the core with output identical to the int8 reference. The
+# program checks its own output; Spike must agree, and on one image every
+# retired instruction must match Spike's.
+g2: sim
+	mkdir -p $(G2)
+	$(CS_COMPILE) --ref $(CNN_REF) --samples 48 -o $(G2)/cnn48.S
+	$(RISCV_PREFIX)gcc $(PROG_CFLAGS) sw/runtime/crt0.S $(G2)/cnn48.S -o $(G2)/cnn48.elf
+	$(SIM) --max-cycles 50000000 $(G2)/cnn48.elf
+	$(SPIKE) --isa=rv32im -m0x80000000:0x100000 $(G2)/cnn48.elf && echo "Spike: PASS"
+	$(CS_COMPILE) --ref $(CNN_REF) --samples 1 -o $(G2)/cnn1.S
+	$(RISCV_PREFIX)gcc $(PROG_CFLAGS) sw/runtime/crt0.S $(G2)/cnn1.S -o $(G2)/cnn1.elf
+	$(PYTHON) scripts/run_tests.py --sim $(SIM) --spike $(SPIKE) --trace-dir $(G2) $(G2)/cnn1.elf
+	$(PYTHON) scripts/trace_to_perfetto.py --elf $(G2)/cnn1.elf --log $(G2)/cnn1.core.log -o $(G2)/cnn1.perfetto.json
+
+compiler-test: sim
+	$(CARGO) test -p coresample-compiler
 
 clean:
 	rm -rf $(BUILD)

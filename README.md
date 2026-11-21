@@ -4,7 +4,7 @@ A core sample of a neural network: follow one token from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
+> Status: phase 2, G2 reached: a quantized CNN, compiled by the project's own compiler, runs on the core with output identical to the int8 reference. Phase 1: Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -25,7 +25,8 @@ sw/arch-test/ riscv-arch-test (ACT4) configuration for the core
 sw/runtime/   Start-up code and linker script for C programs
 sw/programs/  C programs for the core (dense_int8: one int8 dense layer with ReLU)
 scripts/      Dependency installer, test runners, Spike comparison, trace converter
-sim/nn/       Network simulator in Rust: tensors, autograd graph, training
+sim/nn/       Network simulator in Rust: tensors, autograd graph, training, int8 quantization
+compiler/     Compiler from a quantized network to an RV32IM program, with a region map
 docs/         Roadmap and decisions
 ```
 
@@ -39,6 +40,8 @@ make arch-test            # riscv-arch-test, self-checking, plus the same check 
 make trace                # run dense_int8, check it against Spike, write its trace and waveforms
 make unit                 # unit tests of the Python tools
 make nn-test              # network simulator tests against PyTorch (needs cargo)
+make compiler-test        # compiled networks on the core, checked against the int8 reference
+make g2                   # the int8 CNN on the core: all 48 images, plus Spike and a trace
 ```
 
 Spike must be on `PATH` (the installer puts it in `~/.local/bin`), or pass `SPIKE=/path/to/spike`.
@@ -135,3 +138,21 @@ described as a `QNetwork`, a list of quantized layers: the input of the
 compiler. Every integer of every layer matches PyTorch's qnnpack (12288 conv
 values, 3072 pooled, 144 outputs), and both classify 46 of 48 images. In the
 int8 convolution, padding is a real zero, stored as the input zero point.
+
+## Compiler (G2)
+
+`compiler/` turns a `QNetwork` into RV32IM assembly. Each layer is a function
+(`layer0_conv2d`, `layer1_max_pool2d`, `layer3_linear`), so the Perfetto flame
+graph shows layers directly. Every instruction belongs to a region naming its
+operation (`bias`, `mac`, `requant`, `store`, `max`, `loop`, ...), and the ELF
+carries the region addresses in a `.cs_map` section: the instruction →
+operation → layer map is exact by construction, not recovered from debug info.
+
+The program runs the network on every sample and compares its output with the
+expected bytes from the Rust int8 reference. `make g2` runs the bars CNN on all
+48 images in 3.6 million cycles (about 75,000 per image, 89% of them in the
+convolution) and passes on the core and on Spike; on one image every retired
+instruction matches Spike's. The three checks split the work: Spike checks the
+CPU, the Rust int8 reference checks the compiler, PyTorch checks the reference.
+The generated code is deliberately plain (loops and bounds checks); making it
+fast is a later step that the inspector will measure.

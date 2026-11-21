@@ -3,8 +3,9 @@
 //! This is the network the compiler puts on the core for G2.
 mod common;
 use common::{ints, labels, load, within};
+use coresample_nn::models::quantized_bars_cnn;
 use coresample_nn::quant::{
-    max_pool2d_u8, quantize_i8_symmetric, quantize_u8, QConv2d, QLayer, QLinear, QNetwork, QParams,
+    max_pool2d_u8, quantize_i8_symmetric, quantize_u8, QConv2d, QLayer, QNetwork, QParams,
 };
 use coresample_nn::refdata::RefFile;
 use coresample_nn::Tensor;
@@ -18,37 +19,7 @@ fn qparams(r: &RefFile, name: &str) -> QParams {
 }
 
 fn network(r: &RefFile) -> QNetwork {
-    let conv = QConv2d::new(
-        &r["qcnn.conv_w"],
-        &r["qcnn.conv_b"],
-        qparams(r, "x"),
-        qparams(r, "conv_w").scale,
-        qparams(r, "conv"),
-        1,
-        1,
-        true,
-    );
-    let lin = QLinear::new(
-        &r["qcnn.lin_w"],
-        &r["qcnn.lin_b"],
-        qparams(r, "pool"),
-        qparams(r, "lin_w").scale,
-        qparams(r, "out"),
-        false,
-    );
-    QNetwork {
-        input: qparams(r, "x"),
-        input_shape: vec![1, 8, 8],
-        layers: vec![
-            QLayer::Conv2d(conv),
-            QLayer::MaxPool2d {
-                kernel: 2,
-                stride: 2,
-            },
-            QLayer::Flatten,
-            QLayer::Linear(lin),
-        ],
-    }
+    quantized_bars_cnn(r)
 }
 
 fn as_u8(v: &[i32]) -> Vec<u8> {

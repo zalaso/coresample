@@ -1,0 +1,5 @@
+# Rust workspace: the network simulator and the compiler share one lock file
+# and one target/ directory.
+[workspace]
+members = ["sim/nn", "compiler"]
+resolver = "2"

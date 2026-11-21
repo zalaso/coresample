@@ -97,3 +97,48 @@ pub fn gpt_forward(
     let n = g.layer_norm(x, p["lnf_g"], p["lnf_b"], LN_EPS);
     linear(g, n, "wout", "bout")
 }
+
+/// The bars CNN quantized by PyTorch (`tests/data/quant_cnn.ref`, prefix
+/// `qcnn.`): conv 3x3 pad 1 + ReLU -> max pool 2 -> flatten -> linear(64 -> 3),
+/// on 1x8x8 images. The network G2 puts on the core.
+pub fn quantized_bars_cnn(r: &crate::refdata::RefFile) -> crate::quant::QNetwork {
+    use crate::quant::{QConv2d, QLayer, QLinear, QNetwork, QParams};
+    let qp = |name: &str| {
+        let t = r[&format!("qcnn.{name}_qparams")].data();
+        QParams {
+            scale: t[0],
+            zero_point: t[1] as i32,
+        }
+    };
+    let conv = QConv2d::new(
+        &r["qcnn.conv_w"],
+        &r["qcnn.conv_b"],
+        qp("x"),
+        qp("conv_w").scale,
+        qp("conv"),
+        1,
+        1,
+        true,
+    );
+    let lin = QLinear::new(
+        &r["qcnn.lin_w"],
+        &r["qcnn.lin_b"],
+        qp("pool"),
+        qp("lin_w").scale,
+        qp("out"),
+        false,
+    );
+    QNetwork {
+        input: qp("x"),
+        input_shape: vec![1, 8, 8],
+        layers: vec![
+            QLayer::Conv2d(conv),
+            QLayer::MaxPool2d {
+                kernel: 2,
+                stride: 2,
+            },
+            QLayer::Flatten,
+            QLayer::Linear(lin),
+        ],
+    }
+}

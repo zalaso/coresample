@@ -82,5 +82,8 @@ Ordine: prima quantizzazione e compilatore (il percorso verso G2), poi la pipeli
 - [x] Controllo che i test sappiano fallire: riquantizzazione troncata (la trova solo la soglia del 99% di identici), zero point ignorato, arrotondamento lontano da zero (lo trova solo il test unitario)
 - [x] Quantizzazione della CNN, la rete per G2: convoluzione int8 (il padding vale lo zero point), max pool esatto su uint8, `QNetwork` come descrizione della rete per il compilatore. Ogni intero identico a PyTorch (12288 della convoluzione, 3072 del pooling, 144 in uscita), 46 immagini su 48 classificate giuste in entrambi
 - [x] Controllo che i test sappiano fallire: kernel trasposto, stride del pooling ignorato, padding perso negli indici
-- [ ] Compilatore: rete int8 → programma RV32IM con mappa istruzione → operazione → strato, output identico a Rust int8 bit per bit
+- [x] Compilatore (`compiler/`): QNetwork → assembly RV32IM, una funzione per strato, regioni operazione (`bias`, `mac`, `requant`, `store`, `max`, `loop`…) nella sezione `.cs_map` dell'ELF
+- [x] **G2 raggiunto:** la CNN gira sul core su tutte le 48 immagini, output identico al riferimento int8 byte per byte; passa anche su Spike; su un'immagine 75 805 istruzioni identiche a Spike. 3,6 milioni di cicli, 89% nella convoluzione
+- [x] Test del compilatore: strati lineari su tutti i percorsi della riquantizzazione, convoluzioni di varie geometrie, pooling, auto-controllo, mappa che copre ogni istruzione eseguita
+- [x] Controllo che i test sappiano fallire: riquantizzazione senza arrotondamento, `mulhu` al posto di `mulh`, pesi non trasposti, controllo del padding mancante. Il confronto con Spike da solo non li troverebbe: core e Spike eseguono lo stesso programma sbagliato. Li trova l'auto-controllo contro Rust int8
 - [ ] Pipeline a 5 stadi con traccia Kanata e causa di ogni stallo
