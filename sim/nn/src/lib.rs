@@ -9,6 +9,7 @@ mod attention;
 mod conv;
 pub mod graph;
 pub mod models;
+pub mod quant;
 pub mod refdata;
 pub mod tensor;
 

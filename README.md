@@ -114,3 +114,18 @@ the two graphs correspond node by node. Trained for 80 SGD steps on a copy
 task, it stays within 8e-7 of PyTorch. The reference run must be stable: the
 generator rejects runs whose loss ever rises, because where training spikes,
 rounding differences grow exponentially and no two implementations agree.
+
+### int8 quantization
+
+`sim/nn/src/quant.rs` runs a network with integers only, the arithmetic the
+core will execute: uint8 activations with a zero point, int8 symmetric weights,
+int32 bias and accumulator, and requantization by a fixed-point multiplier
+M = m0 / 2^shift with a single rounding (on RV32IM: `mul`, `mulh`, add, shift).
+
+It is checked against PyTorch's own quantized kernels (qnnpack, static
+post-training quantization). On the spiral MLP every integer matches PyTorch:
+input and weight quantization, all 1536 hidden values and all 288 outputs. The
+tests allow 1 in the last place, since PyTorch requantizes in floating point,
+but require 99% of values to be identical: a truncating requantization stays
+within 1 and only the 99% rule catches it. This integer pipeline is the
+reference the compiled program on the core must match bit for bit.

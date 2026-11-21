@@ -318,11 +318,77 @@ def transformer_case() -> dict[str, torch.Tensor]:
             "gpt.shape": shape, **init, "gpt.losses": torch.tensor(losses), **final}
 
 
+def quant_mlp_case(mlp: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """The trained spiral MLP, quantized with PyTorch's own int8 kernels (qnnpack):
+    static post-training quantization, Linear+ReLU fused, calibrated on the
+    training inputs. Weights int8 symmetric per tensor, activations uint8.
+
+    Stores every quantization parameter and the integer values PyTorch
+    computes at each layer, so the Rust integer pipeline can be compared step
+    by step."""
+    from torch.ao.quantization import (DeQuantStub, MinMaxObserver, QConfig, QuantStub,
+                                       convert, fuse_modules, prepare)
+
+    class Mlp(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.quant, self.dequant = QuantStub(), DeQuantStub()
+            self.l1, self.relu, self.l2 = torch.nn.Linear(2, 16), torch.nn.ReLU(), torch.nn.Linear(16, 3)
+
+        def forward(self, x):
+            return self.dequant(self.l2(self.relu(self.l1(self.quant(x)))))
+
+    torch.backends.quantized.engine = "qnnpack"
+    model = Mlp().eval()
+    with torch.no_grad():
+        model.l1.weight.copy_(mlp["mlp.final.w1"].T)
+        model.l1.bias.copy_(mlp["mlp.final.b1"])
+        model.l2.weight.copy_(mlp["mlp.final.w2"].T)
+        model.l2.bias.copy_(mlp["mlp.final.b2"])
+    x, y = mlp["mlp.x"], mlp["mlp.y"].long()
+    float_acc = (model(x).argmax(1) == y).float().mean()
+
+    model.qconfig = QConfig(
+        activation=MinMaxObserver.with_args(dtype=torch.quint8),
+        weight=MinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric))
+    model = fuse_modules(model, [["l1", "relu"]])
+    prepare(model, inplace=True)
+    with torch.no_grad():
+        model(x)  # calibration
+    convert(model, inplace=True)
+
+    with torch.no_grad():
+        xq = model.quant(x)
+        hq = model.l1(xq)        # fused Linear + ReLU
+        oq = model.l2(hq)
+    quant_acc = (oq.dequantize().argmax(1) == y).float().mean()
+
+    def qp(t):
+        return torch.tensor([t.q_scale(), float(t.q_zero_point())])
+
+    w1, w2 = model.l1.weight(), model.l2.weight()
+    return {
+        "qmlp.x": x, "qmlp.y": y.float(),
+        "qmlp.w1": mlp["mlp.final.w1"], "qmlp.b1": mlp["mlp.final.b1"],
+        "qmlp.w2": mlp["mlp.final.w2"], "qmlp.b2": mlp["mlp.final.b2"],
+        # [scale, zero point] of every quantized tensor
+        "qmlp.x_qparams": qp(xq), "qmlp.h_qparams": qp(hq), "qmlp.out_qparams": qp(oq),
+        "qmlp.w1_qparams": qp(w1), "qmlp.w2_qparams": qp(w2),
+        # integer values PyTorch computed, weights in (in, out) layout
+        "qmlp.w1_int": w1.int_repr().T.float(), "qmlp.w2_int": w2.int_repr().T.float(),
+        "qmlp.x_int": xq.int_repr().float(), "qmlp.h_int": hq.int_repr().float(),
+        "qmlp.out_int": oq.int_repr().float(),
+        "qmlp.accuracy": torch.stack([float_acc, quant_acc]),
+    }
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(1)  # one fixed summation order on every machine
     write_ref(OUT / "ops.ref", ops_cases())
-    write_ref(OUT / "mlp.ref", mlp_case())
+    mlp = mlp_case()
+    write_ref(OUT / "mlp.ref", mlp)
+    write_ref(OUT / "quant_mlp.ref", quant_mlp_case(mlp))
     write_ref(OUT / "conv.ref", conv_cases())
     write_ref(OUT / "cnn.ref", cnn_case())
     write_ref(OUT / "attention.ref", attention_cases())

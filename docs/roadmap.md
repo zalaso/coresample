@@ -72,3 +72,14 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Blocco transformer: GPT a un blocco (pre-norm, attenzione causale multi-testa, MLP con GELU) in `models.rs`, fatto di operazioni elementari: embedding, layer norm, permute, batched matmul, scale, maschera causale, softmax, GELU. Addestrato per 80 passi entro 8e-7 da PyTorch; differenze finite su tutto il modello
 - [x] Controllo che i test sappiano fallire: varianza della layer norm, gradiente della softmax, maschera che lascia vedere il futuro, derivata della GELU. La maschera sbagliata passa le differenze finite e la trovano solo il test unitario e PyTorch
 - [x] Lezione: un riferimento di addestramento deve essere stabile. Con lr 0,3 PyTorch stesso ha un picco di loss al passo 70 e lì gli arrotondamenti esplodono; il generatore ora rifiuta le corse in cui la loss risale
+
+## Stato della fase 2
+
+Ordine: prima quantizzazione e compilatore (il percorso verso G2), poi la pipeline.
+
+- [x] Quantizzazione int8 a soli interi (`quant.rs`): attivazioni uint8 con zero point, pesi int8 simmetrici, bias e accumulo int32, riquantizzazione in virgola fissa con un solo arrotondamento
+- [x] Confronto con i kernel quantizzati di PyTorch (qnnpack) sull'MLP: tutti i valori interi identici (1536 nascosti, 288 in uscita), stessa accuratezza
+- [x] Controllo che i test sappiano fallire: riquantizzazione troncata (la trova solo la soglia del 99% di identici), zero point ignorato, arrotondamento lontano da zero (lo trova solo il test unitario)
+- [ ] Quantizzazione della CNN: rete per G2, più accurata dell'MLP (59%)
+- [ ] Compilatore: rete int8 → programma RV32IM con mappa istruzione → operazione → strato, output identico a Rust int8 bit per bit
+- [ ] Pipeline a 5 stadi con traccia Kanata e causa di ogni stallo
