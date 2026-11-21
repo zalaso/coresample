@@ -194,6 +194,130 @@ def cnn_case() -> dict[str, torch.Tensor]:
             "cnn.losses": torch.tensor(losses), **final}
 
 
+def attention_cases() -> dict[str, torch.Tensor]:
+    """The operations of a transformer block, one at a time, forward and backward."""
+    torch.manual_seed(5)
+    out: dict[str, torch.Tensor] = {}
+
+    def record(name: str, y: torch.Tensor, inputs: dict[str, torch.Tensor]) -> None:
+        g = torch.randn_like(y)
+        y.backward(g)
+        out.update({f"{name}.{k}": v for k, v in inputs.items()})
+        out.update({f"{name}.g": g, f"{name}.y": y})
+        out.update({f"{name}.d{k}": v.grad for k, v in inputs.items() if v.requires_grad})
+
+    table = leaf(6, 4)
+    ids = torch.tensor([3, 0, 3, 5, 1])  # a repeated id: its gradient rows add up
+    record("embedding", F.embedding(ids, table), {"table": table})
+    out["embedding.ids"] = ids.float()
+
+    x, gamma, beta = leaf(5, 8), leaf(8), leaf(8)
+    with torch.no_grad():
+        x[0] *= 20.0  # a row with a large spread
+    record("layer_norm", F.layer_norm(x, (8,), gamma, beta, eps=1e-5), {"x": x, "gamma": gamma, "beta": beta})
+
+    x = leaf(4, 6)
+    with torch.no_grad():
+        x[0, 0], x[0, 1] = 0.0, -6.0
+    record("gelu", F.gelu(x, approximate="tanh"), {"x": x})
+
+    x = leaf(3, 5)
+    with torch.no_grad():
+        x[1] *= 30.0  # large logits: softmax must not overflow
+    record("softmax", torch.softmax(x, dim=-1), {"x": x})
+
+    x = leaf(2, 4, 4)
+    mask = torch.triu(torch.ones(4, 4, dtype=torch.bool), diagonal=1)
+    # The masked output is -inf, so the test applies softmax after it, as attention does.
+    record("causal_softmax", torch.softmax(x.masked_fill(mask, float("-inf")), dim=-1), {"x": x})
+
+    a, b = leaf(3, 4, 5), leaf(3, 5, 2)
+    record("bmm", torch.bmm(a, b), {"a": a, "b": b})
+
+    x = leaf(2, 3, 4, 5)
+    record("permute", x.permute(0, 2, 1, 3).contiguous(), {"x": x})
+    out["permute.axes"] = torch.tensor([0, 2, 1, 3], dtype=torch.float32)
+
+    x = leaf(3, 4)
+    record("scale", x * 0.35355339, {"x": x})
+    out["scale.s"] = torch.tensor([0.35355339])
+    return out
+
+
+class Gpt(torch.nn.Module):
+    """One pre-norm transformer block with causal multi-head attention, built
+    from the same elementary operations the Rust graph uses."""
+
+    def __init__(self, vocab: int, seq: int, d: int, heads: int, hidden: int):
+        super().__init__()
+        self.heads, self.dh = heads, d // heads
+        p = lambda *shape, scale=0.3: torch.nn.Parameter(scale * torch.randn(*shape))  # noqa: E731
+        self.params = torch.nn.ParameterDict({
+            "tok": p(vocab, d), "pos": p(seq, d),
+            "ln1_g": torch.nn.Parameter(torch.ones(d)), "ln1_b": torch.nn.Parameter(torch.zeros(d)),
+            "wq": p(d, d), "bq": p(d, scale=0.0), "wk": p(d, d), "bk": p(d, scale=0.0),
+            "wv": p(d, d), "bv": p(d, scale=0.0), "wo": p(d, d), "bo": p(d, scale=0.0),
+            "ln2_g": torch.nn.Parameter(torch.ones(d)), "ln2_b": torch.nn.Parameter(torch.zeros(d)),
+            "w1": p(d, hidden), "b1": p(hidden, scale=0.0), "w2": p(hidden, d), "b2": p(d, scale=0.0),
+            "lnf_g": torch.nn.Parameter(torch.ones(d)), "lnf_b": torch.nn.Parameter(torch.zeros(d)),
+            "wout": p(d, vocab), "bout": p(vocab, scale=0.0),
+        })
+
+    def forward(self, ids: torch.Tensor) -> torch.Tensor:
+        P = self.params
+        b, t = ids.shape
+        d = P["tok"].shape[1]
+        x = F.embedding(ids.reshape(-1), P["tok"]) + F.embedding(torch.arange(t).repeat(b), P["pos"])  # (b*t, d)
+
+        def heads(z: torch.Tensor) -> torch.Tensor:  # (b*t, d) -> (b*h, t, dh)
+            return z.reshape(b, t, self.heads, self.dh).permute(0, 2, 1, 3).reshape(b * self.heads, t, self.dh)
+
+        h = F.layer_norm(x, (d,), P["ln1_g"], P["ln1_b"], eps=1e-5)
+        q, k, v = (heads(h @ P[f"w{n}"] + P[f"b{n}"]) for n in "qkv")
+        scores = torch.bmm(q, k.permute(0, 2, 1)) * (1.0 / math.sqrt(self.dh))
+        mask = torch.triu(torch.ones(t, t, dtype=torch.bool), diagonal=1)
+        att = torch.softmax(scores.masked_fill(mask, float("-inf")), dim=-1)
+        ctx = torch.bmm(att, v).reshape(b, self.heads, t, self.dh).permute(0, 2, 1, 3).reshape(b * t, d)
+        x = x + (ctx @ P["wo"] + P["bo"])
+
+        h = F.layer_norm(x, (d,), P["ln2_g"], P["ln2_b"], eps=1e-5)
+        x = x + (F.gelu(h @ P["w1"] + P["b1"], approximate="tanh") @ P["w2"] + P["b2"])
+        h = F.layer_norm(x, (d,), P["lnf_g"], P["lnf_b"], eps=1e-5)
+        return h @ P["wout"] + P["bout"]  # (b*t, vocab)
+
+
+def transformer_case() -> dict[str, torch.Tensor]:
+    """Copy task: `a b c d a b c d`. The second half can only be predicted by
+    attending 4 positions back. Predict each next token; SGD, full batch."""
+    gen = torch.Generator().manual_seed(6)
+    torch.manual_seed(6)
+    vocab, half, batch = 6, 4, 16
+    first = torch.randint(0, vocab, (batch, half), generator=gen)
+    seq = torch.cat([first, first], dim=1)            # (batch, 8)
+    inputs, targets = seq[:, :-1], seq[:, 1:]         # predict the next token
+    model = Gpt(vocab, inputs.shape[1], d=16, heads=2, hidden=32)
+    init = {f"gpt.{k}": v.detach().clone() for k, v in model.params.items()}
+    # A stable run is required: where the loss spikes, SGD amplifies rounding
+    # differences exponentially, and even PyTorch with another thread count would
+    # not reproduce itself. This model spikes near step 70 with lr = 0.3 and
+    # near step 74 with lr = 0.1; with 0.05 the loss decreases at every step.
+    lr = 0.05
+    opt = torch.optim.SGD(model.parameters(), lr=lr)
+    losses = []
+    for _ in range(80):
+        opt.zero_grad()
+        loss = F.cross_entropy(model(inputs), targets.reshape(-1))
+        loss.backward()
+        opt.step()
+        losses.append(loss.item())
+    assert math.isfinite(losses[-1]) and losses[-1] < 0.85 * losses[0], losses
+    assert all(b <= a * 1.02 for a, b in zip(losses, losses[1:])), "loss spikes: training is unstable"
+    final = {f"gpt.final.{k}": v for k, v in model.params.items()}
+    shape = torch.tensor([batch, inputs.shape[1], vocab, 16, 2, 32], dtype=torch.float32)
+    return {"gpt.inputs": inputs.float(), "gpt.targets": targets.float(), "gpt.lr": torch.tensor([lr]),
+            "gpt.shape": shape, **init, "gpt.losses": torch.tensor(losses), **final}
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(1)  # one fixed summation order on every machine
@@ -201,6 +325,8 @@ def main() -> int:
     write_ref(OUT / "mlp.ref", mlp_case())
     write_ref(OUT / "conv.ref", conv_cases())
     write_ref(OUT / "cnn.ref", cnn_case())
+    write_ref(OUT / "attention.ref", attention_cases())
+    write_ref(OUT / "transformer.ref", transformer_case())
     (OUT / "TORCH_VERSION").write_text(torch.__version__ + "\n")
     return 0
 

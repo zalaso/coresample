@@ -8,6 +8,10 @@
 //! before it, so the node order is already a topological order. Backward
 //! walks the nodes in reverse.
 
+use crate::attention::{
+    bmm, causal_mask, causal_mask_backward, embedding, embedding_backward, gelu, gelu_backward,
+    inverse_axes, layer_norm, layer_norm_backward, permute, softmax, softmax_backward,
+};
 use crate::conv::{conv2d, conv2d_backward, max_pool2d, max_pool2d_backward};
 use crate::tensor::{matmul, matmul_at, matmul_bt, Tensor};
 
@@ -50,6 +54,27 @@ pub enum Op {
     },
     /// Same values, new shape (the node's own shape).
     Reshape(NodeId),
+    /// Rows of `table` (V, D) picked by `ids`.
+    Embedding { table: NodeId, ids: Vec<usize> },
+    /// Normalization over the last dimension, then `* gamma + beta`.
+    LayerNorm {
+        x: NodeId,
+        gamma: NodeId,
+        beta: NodeId,
+        eps: f32,
+    },
+    /// GELU, tanh approximation.
+    Gelu(NodeId),
+    /// Softmax over the last dimension.
+    Softmax(NodeId),
+    /// -inf above the diagonal of the trailing square matrices.
+    CausalMask(NodeId),
+    /// (B, n, k) @ (B, k, m).
+    BatchedMatMul(NodeId, NodeId),
+    /// Axis reordering: output axis i is input axis `axes[i]`.
+    Permute { x: NodeId, axes: Vec<usize> },
+    /// Multiplication by a constant.
+    Scale { x: NodeId, s: f32 },
 }
 
 impl Op {
@@ -66,6 +91,14 @@ impl Op {
             Op::Conv2d { .. } => "conv2d",
             Op::MaxPool2d { .. } => "max_pool2d",
             Op::Reshape(..) => "reshape",
+            Op::Embedding { .. } => "embedding",
+            Op::LayerNorm { .. } => "layer_norm",
+            Op::Gelu(..) => "gelu",
+            Op::Softmax(..) => "softmax",
+            Op::CausalMask(..) => "causal_mask",
+            Op::BatchedMatMul(..) => "batched_matmul",
+            Op::Permute { .. } => "permute",
+            Op::Scale { .. } => "scale",
         }
     }
 
@@ -76,6 +109,16 @@ impl Op {
             Op::Relu(x) | Op::Reshape(x) | Op::MaxPool2d { x, .. } => vec![*x],
             Op::CrossEntropy { logits, .. } => vec![*logits],
             Op::Conv2d { x, w, b, .. } => vec![*x, *w, *b],
+            Op::Gelu(x)
+            | Op::Softmax(x)
+            | Op::CausalMask(x)
+            | Op::Permute { x, .. }
+            | Op::Scale { x, .. } => {
+                vec![*x]
+            }
+            Op::Embedding { table, .. } => vec![*table],
+            Op::LayerNorm { x, gamma, beta, .. } => vec![*x, *gamma, *beta],
+            Op::BatchedMatMul(a, b) => vec![*a, *b],
         }
     }
 }
@@ -203,6 +246,70 @@ impl Graph {
         let n = shape[0];
         let rest = shape[1..].iter().product();
         self.reshape(x, &[n, rest])
+    }
+
+    pub fn embedding(&mut self, table: NodeId, ids: &[usize]) -> NodeId {
+        let value = embedding(self.value(table), ids);
+        self.push(
+            Op::Embedding {
+                table,
+                ids: ids.to_vec(),
+            },
+            value,
+        )
+    }
+
+    pub fn layer_norm(&mut self, x: NodeId, gamma: NodeId, beta: NodeId, eps: f32) -> NodeId {
+        let value = layer_norm(self.value(x), self.value(gamma), self.value(beta), eps);
+        self.push(
+            Op::LayerNorm {
+                x,
+                gamma,
+                beta,
+                eps,
+            },
+            value,
+        )
+    }
+
+    pub fn gelu(&mut self, x: NodeId) -> NodeId {
+        let value = gelu(self.value(x));
+        self.push(Op::Gelu(x), value)
+    }
+
+    pub fn softmax(&mut self, x: NodeId) -> NodeId {
+        let value = softmax(self.value(x));
+        self.push(Op::Softmax(x), value)
+    }
+
+    pub fn causal_mask(&mut self, x: NodeId) -> NodeId {
+        let value = causal_mask(self.value(x));
+        self.push(Op::CausalMask(x), value)
+    }
+
+    pub fn batched_matmul(&mut self, a: NodeId, b: NodeId) -> NodeId {
+        let value = bmm(self.value(a), self.value(b), false, false);
+        self.push(Op::BatchedMatMul(a, b), value)
+    }
+
+    pub fn permute(&mut self, x: NodeId, axes: &[usize]) -> NodeId {
+        let value = permute(self.value(x), axes);
+        self.push(
+            Op::Permute {
+                x,
+                axes: axes.to_vec(),
+            },
+            value,
+        )
+    }
+
+    pub fn scale(&mut self, x: NodeId, s: f32) -> NodeId {
+        let src = self.value(x);
+        let value = Tensor::new(
+            src.shape().to_vec(),
+            src.data().iter().map(|v| v * s).collect(),
+        );
+        self.push(Op::Scale { x, s }, value)
     }
 
     pub fn value(&self, id: NodeId) -> &Tensor {
@@ -351,6 +458,33 @@ impl Graph {
                 vec![(*x, max_pool2d_backward(self.value(*x), *kernel, *stride, g))]
             }
             Op::Reshape(x) => vec![(*x, g.reshape(self.value(*x).shape()))],
+            Op::Embedding { table, ids } => {
+                vec![(*table, embedding_backward(self.value(*table), ids, g))]
+            }
+            Op::LayerNorm {
+                x,
+                gamma,
+                beta,
+                eps,
+            } => {
+                let (dx, dgamma, dbeta) =
+                    layer_norm_backward(self.value(*x), self.value(*gamma), *eps, g);
+                vec![(*x, dx), (*gamma, dgamma), (*beta, dbeta)]
+            }
+            Op::Gelu(x) => vec![(*x, gelu_backward(self.value(*x), g))],
+            Op::Softmax(x) => vec![(*x, softmax_backward(&self.nodes[i].value, g))],
+            Op::CausalMask(x) => vec![(*x, causal_mask_backward(g))],
+            Op::BatchedMatMul(a, b) => vec![
+                (*a, bmm(g, self.value(*b), false, true)), // dA = G @ B^T
+                (*b, bmm(self.value(*a), g, true, false)), // dB = A^T @ G
+            ],
+            Op::Permute { x, axes } => vec![(*x, permute(g, &inverse_axes(axes)))],
+            Op::Scale { x, s } => {
+                vec![(
+                    *x,
+                    Tensor::new(g.shape().to_vec(), g.data().iter().map(|v| v * s).collect()),
+                )]
+            }
         }
     }
 }

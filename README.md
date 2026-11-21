@@ -4,7 +4,7 @@ A core sample of a neural network: follow one token from the model, through the
 compiled instructions, down to the pipeline stall that slowed it down, on a
 RISC-V CPU designed from scratch and verified at every level.
 
-> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP and a small CNN that match PyTorch step by step.
+> Status: phase 1. Single-cycle RV32IM core passes riscv-tests (rv32ui, rv32um) and riscv-arch-test (I, M, Zmmul, Zifencei), with every instruction identical to Spike. A C program (one int8 dense layer) runs on it and can be inspected as a Perfetto flame graph and as VCD waveforms. The network simulator (Rust) trains an MLP, a small CNN and a one-block GPT that match PyTorch step by step.
 
 ## Levels and what checks them
 
@@ -105,3 +105,12 @@ dataset stays within 4e-7 of PyTorch in every loss and every final weight. A
 small CNN (conv 3x3, ReLU, max pool, linear) trained for 60 steps on synthetic
 8x8 images of bars stays within 3e-7. Convolution and pooling use direct loops
 on NCHW tensors, and max pooling breaks ties like PyTorch (first maximum).
+
+The transformer is a one-block GPT (pre-norm, causal multi-head attention,
+GELU MLP) in `sim/nn/src/models.rs`, built from elementary graph operations:
+embedding, layer norm, matmul, permute, batched matmul, scale, causal mask,
+softmax, GELU. The PyTorch reference is written with the same operations, so
+the two graphs correspond node by node. Trained for 80 SGD steps on a copy
+task, it stays within 8e-7 of PyTorch. The reference run must be stable: the
+generator rejects runs whose loss ever rises, because where training spikes,
+rounding differences grow exponentially and no two implementations agree.

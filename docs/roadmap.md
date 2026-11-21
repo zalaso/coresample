@@ -69,4 +69,6 @@ Cache, reti convoluzionali per TinyML, domande tra livelli componibili, simulazi
 - [x] Controllo che i test sappiano fallire: ReLU con gradiente 1 in zero, cross-entropy senza media sul batch
 - [x] Rete convoluzionale: conv2d (stride, padding, kernel rettangolari), max pool con i pareggi come PyTorch, flatten; CNN addestrata per 60 passi entro 3e-7 da PyTorch
 - [x] Controllo che i test sappiano fallire: pareggi del max pool, kernel ribaltato, stride ignorato. Il kernel ribaltato passa le differenze finite e lo trova solo il confronto con PyTorch
-- [ ] Blocco transformer (layer norm, softmax, attenzione)
+- [x] Blocco transformer: GPT a un blocco (pre-norm, attenzione causale multi-testa, MLP con GELU) in `models.rs`, fatto di operazioni elementari: embedding, layer norm, permute, batched matmul, scale, maschera causale, softmax, GELU. Addestrato per 80 passi entro 8e-7 da PyTorch; differenze finite su tutto il modello
+- [x] Controllo che i test sappiano fallire: varianza della layer norm, gradiente della softmax, maschera che lascia vedere il futuro, derivata della GELU. La maschera sbagliata passa le differenze finite e la trovano solo il test unitario e PyTorch
+- [x] Lezione: un riferimento di addestramento deve essere stabile. Con lr 0,3 PyTorch stesso ha un picco di loss al passo 70 e lì gli arrotondamenti esplodono; il generatore ora rifiuta le corse in cui la loss risale
