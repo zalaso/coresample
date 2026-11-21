@@ -33,3 +33,24 @@ pub fn assert_close(what: &str, actual: &Tensor, expected: &Tensor) {
 pub fn labels(t: &Tensor) -> Vec<usize> {
     t.data().iter().map(|&v| v as usize).collect()
 }
+
+/// Every integer within `tol` of PyTorch's; returns how many match exactly.
+pub fn within(what: &str, got: &[u8], expected: &[i32], tol: i32) -> usize {
+    assert_eq!(got.len(), expected.len(), "{what}: length");
+    let mut exact = 0;
+    for (i, (&g, &e)) in got.iter().zip(expected).enumerate() {
+        let diff = (g as i32 - e).abs();
+        assert!(diff <= tol, "{what}[{i}]: got {g}, PyTorch {e}");
+        exact += (diff == 0) as usize;
+    }
+    eprintln!(
+        "{what}: {exact}/{} identical to PyTorch, the rest within {tol}",
+        got.len()
+    );
+    exact
+}
+
+/// The integers PyTorch computed, stored as f32 in the reference file.
+pub fn ints(t: &Tensor) -> Vec<i32> {
+    t.data().iter().map(|&v| v as i32).collect()
+}

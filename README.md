@@ -129,3 +129,9 @@ tests allow 1 in the last place, since PyTorch requantizes in floating point,
 but require 99% of values to be identical: a truncating requantization stays
 within 1 and only the 99% rule catches it. This integer pipeline is the
 reference the compiled program on the core must match bit for bit.
+
+The bars CNN (conv 3x3 + ReLU, max pool, linear) is quantized the same way and
+described as a `QNetwork`, a list of quantized layers: the input of the
+compiler. Every integer of every layer matches PyTorch's qnnpack (12288 conv
+values, 3072 pooled, 144 outputs), and both classify 46 of 48 images. In the
+int8 convolution, padding is a real zero, stored as the input zero point.

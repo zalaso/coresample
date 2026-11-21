@@ -382,6 +382,67 @@ def quant_mlp_case(mlp: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     }
 
 
+def quant_cnn_case(cnn: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """The trained bars CNN, quantized like the MLP (qnnpack, Conv+ReLU fused):
+    quant -> conv 3x3 pad 1 + ReLU -> max pool 2 -> flatten -> linear -> dequant.
+    This is the network the compiler will put on the core for G2."""
+    from torch.ao.quantization import (DeQuantStub, MinMaxObserver, QConfig, QuantStub,
+                                       convert, fuse_modules, prepare)
+
+    class Cnn(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.quant, self.dequant = QuantStub(), DeQuantStub()
+            self.conv, self.relu = torch.nn.Conv2d(1, 4, 3, padding=1), torch.nn.ReLU()
+            self.pool, self.lin = torch.nn.MaxPool2d(2), torch.nn.Linear(64, 3)
+
+        def forward(self, x):
+            h = self.pool(self.relu(self.conv(self.quant(x))))
+            return self.dequant(self.lin(h.flatten(1)))
+
+    torch.backends.quantized.engine = "qnnpack"
+    model = Cnn().eval()
+    with torch.no_grad():
+        model.conv.weight.copy_(cnn["cnn.final.conv_w"])
+        model.conv.bias.copy_(cnn["cnn.final.conv_b"])
+        model.lin.weight.copy_(cnn["cnn.final.lin_w"].T)
+        model.lin.bias.copy_(cnn["cnn.final.lin_b"])
+    x, y = cnn["cnn.x"], cnn["cnn.y"].long()
+    float_acc = (model(x).argmax(1) == y).float().mean()
+
+    model.qconfig = QConfig(
+        activation=MinMaxObserver.with_args(dtype=torch.quint8),
+        weight=MinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric))
+    model = fuse_modules(model, [["conv", "relu"]])
+    prepare(model, inplace=True)
+    with torch.no_grad():
+        model(x)  # calibration
+    convert(model, inplace=True)
+
+    with torch.no_grad():
+        xq = model.quant(x)
+        cq = model.conv(xq)      # fused Conv + ReLU
+        pq = model.pool(cq)      # same scale and zero point as its input
+        oq = model.lin(pq.flatten(1))
+    quant_acc = (oq.dequantize().argmax(1) == y).float().mean()
+
+    def qp(t):
+        return torch.tensor([t.q_scale(), float(t.q_zero_point())])
+
+    cw, lw = model.conv.weight(), model.lin.weight()
+    return {
+        "qcnn.x": x, "qcnn.y": y.float(),
+        "qcnn.conv_w": cnn["cnn.final.conv_w"], "qcnn.conv_b": cnn["cnn.final.conv_b"],
+        "qcnn.lin_w": cnn["cnn.final.lin_w"], "qcnn.lin_b": cnn["cnn.final.lin_b"],
+        "qcnn.x_qparams": qp(xq), "qcnn.conv_qparams": qp(cq), "qcnn.pool_qparams": qp(pq),
+        "qcnn.out_qparams": qp(oq), "qcnn.conv_w_qparams": qp(cw), "qcnn.lin_w_qparams": qp(lw),
+        "qcnn.conv_w_int": cw.int_repr().float(), "qcnn.lin_w_int": lw.int_repr().T.float(),
+        "qcnn.x_int": xq.int_repr().float(), "qcnn.conv_int": cq.int_repr().float(),
+        "qcnn.pool_int": pq.int_repr().float(), "qcnn.out_int": oq.int_repr().float(),
+        "qcnn.accuracy": torch.stack([float_acc, quant_acc]),
+    }
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(1)  # one fixed summation order on every machine
@@ -390,7 +451,9 @@ def main() -> int:
     write_ref(OUT / "mlp.ref", mlp)
     write_ref(OUT / "quant_mlp.ref", quant_mlp_case(mlp))
     write_ref(OUT / "conv.ref", conv_cases())
-    write_ref(OUT / "cnn.ref", cnn_case())
+    cnn = cnn_case()
+    write_ref(OUT / "cnn.ref", cnn)
+    write_ref(OUT / "quant_cnn.ref", quant_cnn_case(cnn))
     write_ref(OUT / "attention.ref", attention_cases())
     write_ref(OUT / "transformer.ref", transformer_case())
     (OUT / "TORCH_VERSION").write_text(torch.__version__ + "\n")

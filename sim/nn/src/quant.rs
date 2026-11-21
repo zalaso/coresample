@@ -102,12 +102,7 @@ impl QLinear {
     pub fn new(w: &Tensor, b: &Tensor, x: QParams, w_scale: f32, y: QParams, relu: bool) -> Self {
         let (inputs, outputs) = w.dims2();
         assert_eq!(b.shape(), &[outputs], "QLinear: bias shape");
-        let bias_scale = x.scale * w_scale;
-        let bias = b
-            .data()
-            .iter()
-            .map(|&v| (v * (1.0 / bias_scale)).round_ties_even() as i32)
-            .collect();
+        let bias = quantize_bias(b, x.scale * w_scale);
         Self {
             inputs,
             outputs,
@@ -145,6 +140,246 @@ impl QLinear {
             }
         }
         out
+    }
+}
+
+/// A 2-D convolution in int8 on NCHW data, weight (C_out, C_in, kH, kW).
+/// Zero padding means a real zero, which is stored as the input zero point:
+/// padded taps contribute (zp - zp) * w = 0, so they are simply skipped.
+#[derive(Clone, Debug)]
+pub struct QConv2d {
+    pub in_channels: usize,
+    pub out_channels: usize,
+    pub kernel: (usize, usize),
+    pub stride: usize,
+    pub padding: usize,
+    /// (C_out, C_in, kH, kW), row-major.
+    pub weight: Vec<i8>,
+    pub bias: Vec<i32>,
+    pub x_zero_point: i32,
+    pub y_zero_point: i32,
+    pub requant: Requant,
+    pub relu: bool,
+}
+
+impl QConv2d {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        w: &Tensor,
+        b: &Tensor,
+        x: QParams,
+        w_scale: f32,
+        y: QParams,
+        stride: usize,
+        padding: usize,
+        relu: bool,
+    ) -> Self {
+        let [cout, cin, kh, kw] = w.shape()[..] else {
+            panic!("QConv2d: weight must be (C_out, C_in, kH, kW)")
+        };
+        assert_eq!(b.shape(), &[cout], "QConv2d: bias shape");
+        assert!(stride > 0, "QConv2d: stride must be positive");
+        Self {
+            in_channels: cin,
+            out_channels: cout,
+            kernel: (kh, kw),
+            stride,
+            padding,
+            weight: quantize_i8_symmetric(w, w_scale),
+            bias: quantize_bias(b, x.scale * w_scale),
+            x_zero_point: x.zero_point,
+            y_zero_point: y.zero_point,
+            requant: Requant::from_scale(x.scale as f64 * w_scale as f64 / y.scale as f64),
+            relu,
+        }
+    }
+
+    pub fn output_shape(&self, [n, c, h, w]: [usize; 4]) -> [usize; 4] {
+        assert_eq!(
+            c, self.in_channels,
+            "QConv2d: input has {c} channels, expected {}",
+            self.in_channels
+        );
+        let (kh, kw) = self.kernel;
+        assert!(
+            h + 2 * self.padding >= kh && w + 2 * self.padding >= kw,
+            "QConv2d: kernel larger than input"
+        );
+        let oh = (h + 2 * self.padding - kh) / self.stride + 1;
+        let ow = (w + 2 * self.padding - kw) / self.stride + 1;
+        [n, self.out_channels, oh, ow]
+    }
+
+    /// The int32 accumulator of one output element.
+    pub fn accumulate(
+        &self,
+        x: &[u8],
+        [_, cin, h, w]: [usize; 4],
+        n: usize,
+        co: usize,
+        oy: usize,
+        ox: usize,
+    ) -> i32 {
+        let (kh, kw) = self.kernel;
+        let mut acc = self.bias[co];
+        for ci in 0..cin {
+            for ky in 0..kh {
+                let Some(iy) = (oy * self.stride + ky)
+                    .checked_sub(self.padding)
+                    .filter(|&i| i < h)
+                else {
+                    continue;
+                };
+                for kx in 0..kw {
+                    let Some(ix) = (ox * self.stride + kx)
+                        .checked_sub(self.padding)
+                        .filter(|&i| i < w)
+                    else {
+                        continue;
+                    };
+                    let xv = x[((n * cin + ci) * h + iy) * w + ix] as i32 - self.x_zero_point;
+                    acc += xv * self.weight[((co * cin + ci) * kh + ky) * kw + kx] as i32;
+                }
+            }
+        }
+        acc
+    }
+
+    pub fn forward(&self, x: &[u8], shape: [usize; 4]) -> (Vec<u8>, [usize; 4]) {
+        assert_eq!(
+            x.len(),
+            shape.iter().product::<usize>(),
+            "QConv2d: input length"
+        );
+        let out_shape = self.output_shape(shape);
+        let [n, cout, oh, ow] = out_shape;
+        let lo = if self.relu {
+            self.y_zero_point.max(0)
+        } else {
+            0
+        };
+        let mut out = Vec::with_capacity(out_shape.iter().product());
+        for ni in 0..n {
+            for co in 0..cout {
+                for oy in 0..oh {
+                    for ox in 0..ow {
+                        let acc = self.accumulate(x, shape, ni, co, oy, ox);
+                        out.push((self.requant.apply(acc) + self.y_zero_point).clamp(lo, 255) as u8);
+                    }
+                }
+            }
+        }
+        (out, out_shape)
+    }
+}
+
+fn quantize_bias(b: &Tensor, scale: f32) -> Vec<i32> {
+    b.data()
+        .iter()
+        .map(|&v| (v * (1.0 / scale)).round_ties_even() as i32)
+        .collect()
+}
+
+/// Max pooling on uint8 values, no padding. Scale and zero point are unchanged
+/// and max is monotonic, so this is exact: no rounding happens.
+pub fn max_pool2d_u8(
+    x: &[u8],
+    [n, c, h, w]: [usize; 4],
+    kernel: usize,
+    stride: usize,
+) -> (Vec<u8>, [usize; 4]) {
+    assert_eq!(x.len(), n * c * h * w, "max_pool2d_u8: input length");
+    assert!(
+        kernel > 0 && stride > 0 && h >= kernel && w >= kernel,
+        "max_pool2d_u8: bad geometry"
+    );
+    let (oh, ow) = ((h - kernel) / stride + 1, (w - kernel) / stride + 1);
+    let mut out = Vec::with_capacity(n * c * oh * ow);
+    for plane in 0..n * c {
+        for oy in 0..oh {
+            for ox in 0..ow {
+                let mut best = 0u8;
+                for ky in 0..kernel {
+                    for kx in 0..kernel {
+                        best = best.max(x[(plane * h + oy * stride + ky) * w + ox * stride + kx]);
+                    }
+                }
+                out.push(best);
+            }
+        }
+    }
+    (out, [n, c, oh, ow])
+}
+
+/// One step of a quantized network.
+#[derive(Clone, Debug)]
+pub enum QLayer {
+    Conv2d(QConv2d),
+    MaxPool2d {
+        kernel: usize,
+        stride: usize,
+    },
+    /// (N, C, H, W) to (N, C * H * W); the bytes do not move.
+    Flatten,
+    Linear(QLinear),
+}
+
+/// A quantized network: what the compiler turns into a RISC-V program.
+#[derive(Clone, Debug)]
+pub struct QNetwork {
+    /// How float inputs are quantized; the program itself starts from uint8.
+    pub input: QParams,
+    /// Shape of one input sample, without the batch dimension.
+    pub input_shape: Vec<usize>,
+    pub layers: Vec<QLayer>,
+}
+
+impl QNetwork {
+    /// The uint8 output of every layer, for `n` samples.
+    pub fn forward_layers(&self, x: &[u8], n: usize) -> Vec<Vec<u8>> {
+        let mut shape: Vec<usize> = std::iter::once(n)
+            .chain(self.input_shape.iter().copied())
+            .collect();
+        assert_eq!(
+            x.len(),
+            shape.iter().product::<usize>(),
+            "QNetwork: input length"
+        );
+        let mut cur = x.to_vec();
+        let mut outputs = Vec::with_capacity(self.layers.len());
+        for layer in &self.layers {
+            let as4 = |s: &[usize]| -> [usize; 4] {
+                s.try_into()
+                    .unwrap_or_else(|_| panic!("QNetwork: layer needs (N, C, H, W), got {s:?}"))
+            };
+            (cur, shape) = match layer {
+                QLayer::Conv2d(conv) => {
+                    let (y, s) = conv.forward(&cur, as4(&shape));
+                    (y, s.to_vec())
+                }
+                QLayer::MaxPool2d { kernel, stride } => {
+                    let (y, s) = max_pool2d_u8(&cur, as4(&shape), *kernel, *stride);
+                    (y, s.to_vec())
+                }
+                QLayer::Flatten => {
+                    let rest = shape[1..].iter().product();
+                    (cur, vec![shape[0], rest])
+                }
+                QLayer::Linear(lin) => {
+                    assert_eq!(shape, [n, lin.inputs], "QNetwork: linear layer input shape");
+                    (lin.forward(&cur, n), vec![n, lin.outputs])
+                }
+            };
+            outputs.push(cur.clone());
+        }
+        outputs
+    }
+
+    /// The network output for `n` samples.
+    pub fn forward(&self, x: &[u8], n: usize) -> Vec<u8> {
+        self.forward_layers(x, n)
+            .pop()
+            .unwrap_or_else(|| x.to_vec())
     }
 }
 

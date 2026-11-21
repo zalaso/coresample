@@ -80,6 +80,7 @@ Ordine: prima quantizzazione e compilatore (il percorso verso G2), poi la pipeli
 - [x] Quantizzazione int8 a soli interi (`quant.rs`): attivazioni uint8 con zero point, pesi int8 simmetrici, bias e accumulo int32, riquantizzazione in virgola fissa con un solo arrotondamento
 - [x] Confronto con i kernel quantizzati di PyTorch (qnnpack) sull'MLP: tutti i valori interi identici (1536 nascosti, 288 in uscita), stessa accuratezza
 - [x] Controllo che i test sappiano fallire: riquantizzazione troncata (la trova solo la soglia del 99% di identici), zero point ignorato, arrotondamento lontano da zero (lo trova solo il test unitario)
-- [ ] Quantizzazione della CNN: rete per G2, più accurata dell'MLP (59%)
+- [x] Quantizzazione della CNN, la rete per G2: convoluzione int8 (il padding vale lo zero point), max pool esatto su uint8, `QNetwork` come descrizione della rete per il compilatore. Ogni intero identico a PyTorch (12288 della convoluzione, 3072 del pooling, 144 in uscita), 46 immagini su 48 classificate giuste in entrambi
+- [x] Controllo che i test sappiano fallire: kernel trasposto, stride del pooling ignorato, padding perso negli indici
 - [ ] Compilatore: rete int8 → programma RV32IM con mappa istruzione → operazione → strato, output identico a Rust int8 bit per bit
 - [ ] Pipeline a 5 stadi con traccia Kanata e causa di ogni stallo

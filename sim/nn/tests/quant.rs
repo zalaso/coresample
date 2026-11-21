@@ -4,7 +4,7 @@
 //! differ by 1 in the last integer place: PyTorch requantizes in floating
 //! point, Coresample with a fixed-point multiplier that the RISC-V core can run.
 mod common;
-use common::{labels, load};
+use common::{labels, load, within};
 use coresample_nn::quant::{quantize_i8_symmetric, quantize_u8, QLinear, QParams, Requant};
 use coresample_nn::refdata::RefFile;
 
@@ -43,22 +43,6 @@ fn layers(r: &RefFile) -> (QLinear, QLinear) {
         false,
     );
     (l1, l2)
-}
-
-/// Every element within `tol`; returns how many match exactly.
-fn within(what: &str, got: &[u8], expected: &[i32], tol: i32) -> usize {
-    assert_eq!(got.len(), expected.len(), "{what}: length");
-    let mut exact = 0;
-    for (i, (&g, &e)) in got.iter().zip(expected).enumerate() {
-        let diff = (g as i32 - e).abs();
-        assert!(diff <= tol, "{what}[{i}]: got {g}, PyTorch {e}");
-        exact += (diff == 0) as usize;
-    }
-    eprintln!(
-        "{what}: {exact}/{} identical to PyTorch, the rest within {tol}",
-        got.len()
-    );
-    exact
 }
 
 #[test]
